@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('api', {
   mrSearch: inv('mr:search'), mrInstall: inv('mr:install'), capeSet: inv('cape:set'), skinHist: inv('skin:hist'), skinUse: inv('skin:use'), skinHistDel: inv('skin:histdel'),
   shortcutCreate: inv('shortcut:create'), launchPending: inv('launch:pending'),
   appVersion: inv('app:version'), updCheck: inv('upd:check'), updDownload: inv('upd:download'), updInstall: inv('upd:install'),
+  presence: inv('rpc:set'), rpcInfo: inv('rpc:info'),
   mrPlan: inv('mr:plan'), iconPick: inv('icon:pick'), mrIdentify: inv('mr:identify'), mrCategories: inv('mr:categories'), mrProject: inv('mr:project'), openUrl: inv('open:url'), shotCopy: inv('shot:copy'), mrApply: inv('mr:apply'),
   profileExport: inv('profile:export'), profileImport: inv('profile:import'), profileCopy: inv('profile:copy'), instCopy: inv('inst:copy'),
   pathOf: f => webUtils.getPathForFile(f),

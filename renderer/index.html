@@ -212,6 +212,7 @@ div.prof{cursor:pointer}
   <section class="view" id="v-profiles">
     <div class="card">
       <div class="row" style="margin-bottom:8px"><h2 style="margin:0">Ваши сборки</h2><span style="display:flex;gap:8px"><button class="btn t" id="impP">Импорт</button><button class="btn" id="addP">Создать</button></span></div>
+      <p class="sub" id="impStat"></p>
       <div id="plist"></div>
     </div>
   </section>
@@ -262,6 +263,7 @@ div.prof{cursor:pointer}
   <section class="view" id="v-settings">
     <div class="grid">
       <div class="card"><h2>Обновления</h2><p class="sub" id="verTxt" style="margin-bottom:8px"></p><p id="updTxt" style="margin-bottom:12px"></p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="updCheck">Проверить обновления</button><button class="btn" id="updGo" style="display:none">Скачать</button></div></div>
+      <div class="card" id="rpcCard" style="display:none"><h2>Discord</h2><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="rpcOn" checked style="accent-color:var(--primary)"><span>Показывать мою активность в Discord</span></label></div>
       <div class="card">
         <h2>Память</h2>
         <div class="row"><span>Выделенная ОЗУ</span><strong id="ramV">4 ГБ</strong></div>
@@ -350,7 +352,8 @@ const I18N={
 "По имени":["By name","За назвою"],"По дате":["By date","За датою"],"По размеру":["By size","За розміром"],"Выбрано":["Selected","Вибрано"],"Включить":["Enable","Увімкнути"],"Выключить":["Disable","Вимкнути"],
 "Снять выделение":["Clear selection","Зняти виділення"],"Выбрать все":["Select all","Вибрати всі"],"Обновить":["Update","Оновити"],"Отпустите, чтобы добавить в":["Drop to add to","Відпустіть, щоб додати до"],
 "Копировать":["Copy","Копіювати"],"Открыть в программе":["Open in viewer","Відкрити в програмі"],"Скопировано":["Copied","Скопійовано"],"Назад":["Back","Назад"],"Вперёд":["Next","Далі"],
-"Плащ":["Cape","Плащ"],"Применить плащ":["Apply cape","Застосувати плащ"],"Плащ изменён":["Cape changed","Плащ змінено"],"Без плаща":["No cape","Без плаща"],
+"Плащ":["Cape","Плащ"],"В лаунчере":["In the launcher","У лаунчері"],"Выбирает сборку":["Choosing a profile","Обирає збірку"],"Готовится к запуску":["Preparing to launch","Готується до запуску"],"Играет":["Playing","Грає"],
+"Показывать мою активность в Discord":["Show my activity in Discord","Показувати мою активність у Discord"],"Не удалось скачать файлов: ":["Files that failed to download: ","Не вдалося завантажити файлів: "],"Применить плащ":["Apply cape","Застосувати плащ"],"Плащ изменён":["Cape changed","Плащ змінено"],"Без плаща":["No cape","Без плаща"],
 "Войдите через Microsoft, чтобы увидеть плащи":["Sign in with Microsoft to see your capes","Увійдіть через Microsoft, щоб побачити плащі"],"Войдите через Microsoft, чтобы сменить плащ":["Sign in with Microsoft to change the cape","Увійдіть через Microsoft, щоб змінити плащ"],
 "История скинов":["Skin history","Історія скінів"],"Скины, которые вы применяли. Нажмите, чтобы посмотреть и вернуть.":["Skins you’ve applied. Click one to preview and restore it.","Скіни, які ви застосовували. Натисніть, щоб переглянути й повернути."],
 "Ярлык на рабочем столе":["Desktop shortcut","Ярлик на робочому столі"],"Ярлык создан на рабочем столе":["Shortcut created on the desktop","Ярлик створено на робочому столі"],
@@ -462,7 +465,7 @@ const slug=s=>(s||"").replace(/[^\w.-]+/g,"_")||"p";
 function ensureIds(){const u=new Set();profiles.forEach(p=>{let id=p.id||slug(p.n);while(u.has(id))id+="_";p.id=id;u.add(id)})}
 let RUN=new Set(),editTab="ver";
 const errText=e=>String(e.message).replace(/^Error invoking remote method '[^']*': (Error: )?/,"");
-function updPlay(){if(running)return;const e=!profiles.length,r=RUN.has(profiles[cur]?.id);$("#play").disabled=false;$("#play").classList.toggle("stop",r);$("#playTxt").textContent=tr(e?"Создать сборку":r?"Остановить":"Играть")}
+function updPlay(){updPresence();if(running)return;const e=!profiles.length,r=RUN.has(profiles[cur]?.id);$("#play").disabled=false;$("#play").classList.toggle("stop",r);$("#playTxt").textContent=tr(e?"Создать сборку":r?"Остановить":"Играть")}
 function renderProfiles(){
   $("#plist").innerHTML=profiles.map((p,i)=>`<div class="prof" data-i="${i}" aria-pressed="${i===cur}"><span class="pic"${p.col?` style="background:${p.col};color:#fff"`:""}>${p.img?`<img src="${esc(p.img)}" alt="">`:p.em||icon(p.l)}</span><span class="grow"><strong>${esc(p.n)}</strong><small>${p.v} · ${p.l}${RUN.has(p.id)?" · "+tr("Запущено"):""}</small></span><button class="btn t" data-a="edit">${tr("Изменить")}</button><button class="btn t" data-a="del">${tr("Удалить")}</button></div>`).join("")||`<p class="sub">${tr("Здесь пока пусто")}</p>`;
 }
@@ -601,11 +604,11 @@ api.on("progress",(st,p)=>{$("#pStage").textContent=tr(st);$("#pPct").textConten
 api.on("log",t=>log(tr(t)));
 $("#play").onclick=async()=>{
   if(running)return;const p=profiles[cur];if(!p){$("#addP").click();return}if(RUN.has(p.id)){api.stop(p.id);return}
-    running=true;$("#play").disabled=true;$("#playTxt").textContent=tr("Загрузка…");$("#prog").classList.add("on");
+    running=true;$("#play").disabled=true;updPresence();$("#playTxt").textContent=tr("Загрузка…");$("#prog").classList.add("on");
   try{await api.launch({id:p.v,pid:p.id,name:p.n,nick:$("#nick").textContent,ram:Math.max(512,+$("#ram").value||4096),jvm:$("#jvm").value,loader:p.l,lver:p.lv||"",java:$("#java").value});$("#playTxt").textContent=tr("Игра запущена")}
   catch(e){log(tr("Ошибка: ")+tr(errText(e)));snack("Не удалось запустить, подробности в консоли")}
   setTimeout(()=>{running=false;$("#play").disabled=false;updPlay();$("#prog").classList.remove("on");$("#barI").style.width="0"},2000)};
-async function persist(){await api.setConfig({profiles,cur,nick:$("#nick").textContent,ram:$("#ram").value,jvm:$("#jvm").value,java:$("#java").value,lang:$("#lang").value,v:2})}
+async function persist(){await api.setConfig({profiles,cur,nick:$("#nick").textContent,ram:$("#ram").value,jvm:$("#jvm").value,java:$("#java").value,lang:$("#lang").value,rpc:$("#rpcOn").checked,v:2})}
 
 /* Настройки */
 $("#ram").oninput=e=>{e.target.value=e.target.value.replace(/\D/g,"");updMem();renderHome();persist()};
@@ -639,10 +642,20 @@ document.onkeydown=e=>{if(e.key==="Escape"){api.authCancel();dlg.classList.remov
 $("#impP").onclick=async()=>{
   try{const id="p"+Date.now().toString(36),m=await api.profileImport(id);if(!m)return;
     profiles.push({id,n:String(m.n||"").slice(0,60)||tr("Новая сборка"),v:String(m.v),l:LOADERS.includes(m.l)?m.l:"Vanilla",lv:String(m.lv||""),col:/^#[0-9a-f]{6}$/i.test(m.col)?m.col:undefined,em:EMOJI.includes(m.em)?m.em:undefined,img:/^data:image\/png;base64,[A-Za-z0-9+\/=]{1,300000}$/.test(m.img||"")?m.img:undefined});
-    cur=profiles.length-1;persist();renderProfiles();renderHome();snack("Готово")}catch(e){snack(errText(e))}
+    cur=profiles.length-1;persist();renderProfiles();renderHome();snack(m.failed&&m.failed.length?tr("Не удалось скачать файлов: ")+m.failed.length:"Готово")}catch(e){snack(errText(e))}finally{$("#impStat").textContent=""}
 };
 
 /* Автозапуск по ярлыку и обновления */
+let PS={};
+function updPresence(){
+  if(!$("#rpcOn").checked){api.presence(null);return}
+  const pl=profiles.find(p=>RUN.has(p.id));
+  if(!pl){api.presence({details:tr("В лаунчере"),state:tr("Выбирает сборку")});return}
+  const t=running&&pl.id===profiles[cur]?.id;
+  api.presence({details:tr(t?"Готовится к запуску":"Играет")+": "+pl.n,state:`${pl.v} · ${pl.l}`,start:t?undefined:(PS[pl.id]||=Date.now())});
+}
+$("#rpcOn").onchange=()=>{persist();updPresence()};
+api.on("impprog",o=>{$("#impStat").textContent=tr("Импорт")+": "+o.done+" / "+o.total});
 function autoLaunch(pid){
   const i=profiles.findIndex(p=>p.id===pid);if(i<0||RUN.has(pid)||running)return;
   cur=i;persist();renderProfiles();renderHome();show("home");setTimeout(()=>$("#play").click(),300);
@@ -852,7 +865,7 @@ $("#hist").onclick=async e=>{
     $("#ram").value=c.v>=2?c.ram:Math.round(c.ram*1024);$("#jvm").value=c.jvm}
   updMem();ensureIds();
   try{const a=await api.authState();if(a)setAcc(a)}catch(e){}
-  api.on("running",l=>{RUN=new Set(l);renderProfiles();updPlay()});
+  api.on("running",l=>{RUN=new Set(l);for(const k of Object.keys(PS))if(!RUN.has(k))delete PS[k];renderProfiles();updPlay()});
   try{const v=await api.versions();versions.splice(0,versions.length,...v)}catch(e){log(tr("Нет сети: список версий не обновлён"))}
   await loadJava(c.java||"auto");
   $("#jvm").onchange=$("#java").onchange=persist;
@@ -861,6 +874,8 @@ $("#hist").onclick=async e=>{
   $("#lang").onchange=()=>{setLang($("#lang").value);persist()};
   renderProfiles();fillForm();renderHome();
   api.icons().then(i=>{Object.assign(REMOTE,i);renderProfiles();fillForm();renderHome()}).catch(()=>{});
+  $("#rpcOn").checked=c.rpc!==false;
+  api.rpcInfo().then(i=>{$("#rpcCard").style.display=i.available?"":"none";updPresence()}).catch(()=>{});
   api.appVersion().then(v=>{$("#verTxt").textContent="Nexora Launcher · "+tr("Версия")+" "+v.version}).catch(()=>{});
   api.on("autolaunch",autoLaunch);
   api.launchPending().then(pid=>{if(pid)autoLaunch(pid)}).catch(()=>{});

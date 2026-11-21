@@ -497,10 +497,43 @@ ipcMain.handle('profile:export', async (_, pid, meta, worlds) => {
   fs.writeFileSync(r.filePath, zipWrite([{ name: 'nexora-profile.json', data: Buffer.from(JSON.stringify(meta)) }, ...files.map(f => ({ name: 'files/' + f, data: fs.readFileSync(path.join(base, f)) }))]));
   return true;
 });
+const MRHOSTS = ['cdn.modrinth.com', 'github.com', 'raw.githubusercontent.com', 'gitlab.com'];
+// Импорт модпака Modrinth (.mrpack): скачивает файлы с проверкой sha1 и распаковывает overrides
+async function importMrpack(es, pid, send) {
+  const idx = JSON.parse(es.find(e => e.name === 'modrinth.index.json').get().toString('utf8'));
+  const base = path.resolve(inst(pid)); fs.mkdirSync(base, { recursive: true });
+  const within = rel => { const t = path.resolve(base, String(rel)); return t.startsWith(base + path.sep) ? t : null; };
+  const files = (idx.files || []).filter(f => f.env?.client !== 'unsupported'), failed = []; let done = 0;
+  send({ done: 0, total: files.length });
+  await pool(files, 8, async f => {
+    try {
+      const t = within(f.path); if (!t) throw 0;
+      if (!fs.existsSync(t)) {
+        let ok = false;
+        for (const u of f.downloads || []) {
+          let url; try { url = new URL(u); } catch { continue; }
+          if (url.protocol !== 'https:' || !MRHOSTS.includes(url.hostname)) continue;
+          const r = await fetch(url); if (!r.ok) continue;
+          const buf = Buffer.from(await r.arrayBuffer());
+          if (f.hashes?.sha1 && crypto.createHash('sha1').update(buf).digest('hex') !== f.hashes.sha1) continue;
+          fs.mkdirSync(path.dirname(t), { recursive: true }); fs.writeFileSync(t, buf); ok = true; break;
+        }
+        if (!ok) throw 0;
+      }
+    } catch { failed.push(path.basename(String(f.path))); }
+    send({ done: ++done, total: files.length });
+  });
+  for (const e of es) for (const pre of ['overrides/', 'client-overrides/'])
+    if (e.name.startsWith(pre) && !e.name.endsWith('/')) { const t = within(e.name.slice(pre.length)); if (t) { fs.mkdirSync(path.dirname(t), { recursive: true }); fs.writeFileSync(t, e.get()); } }
+  const d = idx.dependencies || {};
+  const L = d['fabric-loader'] ? ['Fabric', d['fabric-loader']] : d['quilt-loader'] ? ['Quilt', d['quilt-loader']] : d.neoforge ? ['NeoForge', d.neoforge] : d.forge ? ['Forge', d.forge] : ['Vanilla', ''];
+  return { n: idx.name, v: d.minecraft, l: L[0], lv: L[1], failed };
+}
 ipcMain.handle('profile:import', async (_, pid) => {
-  const r = await dialog.showOpenDialog(win, { properties: ['openFile'], filters: [{ name: 'ZIP', extensions: ['zip'] }] });
+  const r = await dialog.showOpenDialog(win, { properties: ['openFile'], filters: [{ name: 'Nexora / Modrinth', extensions: ['zip', 'mrpack'] }] });
   if (r.canceled) return null;
   const es = zipRead(fs.readFileSync(r.filePaths[0])), m = es.find(e => e.name === 'nexora-profile.json');
+  if (es.some(e => e.name === 'modrinth.index.json')) return importMrpack(es, pid, o => win.webContents.send('impprog', o));
   if (!m) throw new Error('Это не архив сборки Nexora');
   const base = path.resolve(inst(pid));
   for (const e of es) {
@@ -588,6 +621,56 @@ function srvSave(pid, r) { fs.mkdirSync(inst(pid), { recursive: true }); fs.writ
 ipcMain.handle('srv:list', (_, pid) => srvView(srvLoad(pid)));
 ipcMain.handle('srv:add', (_, pid, name, ip) => { const r = srvLoad(pid); r.servers.v.t = 10; r.servers.v.a.push({ name: { t: 8, v: name }, ip: { t: 8, v: ip } }); return srvSave(pid, r); });
 ipcMain.handle('srv:rm', (_, pid, i) => { const r = srvLoad(pid); r.servers.v.a.splice(i, 1); return srvSave(pid, r); });
+
+/* ---------- Discord Rich Presence (IPC без внешних библиотек) ---------- */
+// Application ID из https://discord.com/developers/applications (New Application). Пока пусто — Rich Presence выключен.
+const DISCORD_CLIENT_ID = process.env.NEXORA_DISCORD_ID || '';
+const net = require('net');
+const rpc = { sock: null, ready: false, connecting: false, last: null, want: null, retry: null };
+function rpcPaths() {
+  if (process.platform === 'win32') return Array.from({ length: 10 }, (_, i) => `\\\\?\\pipe\\discord-ipc-${i}`);
+  const dirs = [process.env.XDG_RUNTIME_DIR, process.env.TMPDIR, process.env.TMP, process.env.TEMP, '/tmp'].filter(Boolean), out = [];
+  for (const d of dirs) for (let i = 0; i < 10; i++) out.push(path.join(d, `discord-ipc-${i}`), path.join(d, 'app/com.discordapp.Discord', `discord-ipc-${i}`), path.join(d, 'snap.discord', `discord-ipc-${i}`));
+  return out;
+}
+const rpcPack = (op, obj) => { const b = Buffer.from(JSON.stringify(obj)), h = Buffer.alloc(8); h.writeInt32LE(op, 0); h.writeInt32LE(b.length, 4); return Buffer.concat([h, b]); };
+const rpcLater = () => { if (rpc.want && !rpc.retry) rpc.retry = setTimeout(() => { rpc.retry = null; rpcConnect(); }, 15000); };
+function rpcConnect() {
+  if (!DISCORD_CLIENT_ID || rpc.sock || rpc.connecting) return;
+  rpc.connecting = true;
+  const next = list => {
+    const p = list.shift();
+    if (!p) { rpc.connecting = false; rpcLater(); return; } // Discord не запущен — попробуем позже
+    const s = net.createConnection(p); let buf = Buffer.alloc(0), opened = false;
+    s.once('connect', () => { opened = true; s.write(rpcPack(0, { v: 1, client_id: DISCORD_CLIENT_ID })); });
+    s.on('data', d => {
+      buf = Buffer.concat([buf, d]);
+      while (buf.length >= 8) {
+        const len = buf.readInt32LE(4); if (buf.length < 8 + len) break;
+        let msg = {}; try { msg = JSON.parse(buf.subarray(8, 8 + len).toString()); } catch {}
+        buf = buf.subarray(8 + len);
+        if (msg.evt === 'READY') { rpc.sock = s; rpc.ready = true; rpc.connecting = false; rpc.last = null; rpcApply(); }
+      }
+    });
+    s.on('error', () => { if (!opened) next(list); });
+    s.on('close', () => { if (rpc.sock === s) { rpc.sock = null; rpc.ready = false; rpc.last = null; rpcLater(); } else if (opened && !rpc.ready) { rpc.connecting = false; rpcLater(); } });
+  };
+  next(rpcPaths());
+}
+function rpcApply() {
+  if (!rpc.ready) return;
+  const a = rpc.want, key = JSON.stringify(a); if (key === rpc.last) return; rpc.last = key;
+  rpc.sock.write(rpcPack(1, { cmd: 'SET_ACTIVITY', nonce: String(Date.now() + Math.random()), args: { pid: process.pid, activity: a ? {
+    details: a.details || undefined, state: a.state || undefined, timestamps: a.start ? { start: a.start } : undefined,
+    assets: { large_image: 'nexora', large_text: 'Nexora Launcher' } } : null } }));
+}
+ipcMain.handle('rpc:info', () => ({ available: !!DISCORD_CLIENT_ID }));
+ipcMain.handle('rpc:set', (_, a) => {
+  rpc.want = a ? { details: String(a.details || '').slice(0, 128), state: String(a.state || '').slice(0, 128), start: a.start ? Math.floor(a.start / 1000) : undefined } : null;
+  if (rpc.want) rpcConnect();
+  rpcApply();
+});
+app.on('before-quit', () => rpc.sock?.destroy());
 
 /* ---------- Ярлык сборки и автозапуск ---------- */
 let pendingPid = (process.argv.find(a => a.startsWith('--launch=')) || '').slice(9) || null;
