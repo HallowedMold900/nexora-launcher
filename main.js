@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, clipboard, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, clipboard, nativeImage, nativeTheme } = require('electron');
 const zlib = require('zlib');
 const { pathToFileURL } = require('url');
 const path = require('path'), fs = require('fs'), os = require('os'), crypto = require('crypto');
@@ -723,9 +723,11 @@ app.whenReady().then(() => {
   loadAcc();
   win = new BrowserWindow({
     width: 1100, height: 720, minWidth: 720, minHeight: 560, title: 'Nexora Launcher', autoHideMenuBar: true,
+    show: false, icon: path.join(__dirname, 'build', 'icon.png'), backgroundColor: nativeTheme.shouldUseDarkColors ? '#141218' : '#FEF7FF',
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false }
   });
   win.loadFile('renderer/index.html');
+  win.once('ready-to-show', () => win.show());
   setupUpdater();
 });
 app.on('window-all-closed', () => app.quit());

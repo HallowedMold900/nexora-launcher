@@ -168,12 +168,27 @@ div.prof{cursor:pointer}
 .lgs button.cp{flex-direction:column;gap:4px;padding:8px;width:76px;justify-content:center}
 .cth{width:30px;height:48px;image-rendering:pixelated;background-color:var(--sc-highest);border-radius:3px}
 .wph{width:40px;height:40px;border-radius:8px;background:var(--sc-highest);flex:none}
+.logo{background:none}.logo svg{width:48px;height:48px}
+#splash{position:fixed;inset:0;z-index:20;background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;transition:opacity .45s ease,visibility .45s}
+#splash.hide{opacity:0;visibility:hidden}
+.sp-logo{width:112px;height:112px;animation:spIn .7s cubic-bezier(.2,0,0,1) both,spPulse 2.4s ease-in-out .9s infinite}
+.sp-logo svg{width:100%;height:100%}
+.sp-n{stroke-dasharray:1;stroke-dashoffset:1;animation:spDraw 1s ease .35s forwards}
+.sp-name{font-size:26px;font-weight:500;letter-spacing:.5px;animation:vin .6s ease .5s both}
+.sp-bar{width:180px;height:4px;border-radius:2px;background:var(--sc-highest);overflow:hidden;position:relative;animation:vin .6s ease .6s both}
+.sp-bar i{position:absolute;top:0;bottom:0;left:-40%;width:40%;background:var(--primary);border-radius:2px;animation:spBar 1.3s ease-in-out infinite}
+.sp-txt{font-size:14px;color:var(--on-variant);min-height:1.4em}
+@keyframes spIn{from{opacity:0;transform:scale(.6) rotate(-8deg)}to{opacity:1;transform:none}}
+@keyframes spPulse{0%,100%{filter:drop-shadow(0 0 0 rgba(103,80,164,0))}50%{filter:drop-shadow(0 0 22px rgba(103,80,164,.55))}}
+@keyframes spDraw{to{stroke-dashoffset:0}}
+@keyframes spBar{from{left:-40%}to{left:100%}}
 </style>
 </head>
 <body>
+<div id="splash" aria-hidden="true"><div class="sp-logo"><svg viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="lgSplash" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8A71CF"/><stop offset="1" stop-color="#4F378B"/></linearGradient></defs><rect width="120" height="120" rx="28" fill="url(#lgSplash)"/><path class="sp-n" d="M38 85V36l44 49V36" fill="none" stroke="#fff" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" pathLength="1"/></svg></div><div class="sp-name">Nexora Launcher</div><div class="sp-bar"><i></i></div><div class="sp-txt" id="splashTxt">…</div></div>
 
 <nav aria-label="Основная навигация">
-  <div class="logo" aria-hidden="true">N</div>
+  <div class="logo" aria-hidden="true"><svg viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="lgNav" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8A71CF"/><stop offset="1" stop-color="#4F378B"/></linearGradient></defs><rect width="120" height="120" rx="28" fill="url(#lgNav)"/><path d="M38 85V36l44 49V36" fill="none" stroke="#fff" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" pathLength="1"/></svg></div>
   <button class="nb" data-v="home" aria-current="page"><span class="pill"><svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></span>Главная</button>
   <button class="nb" data-v="profiles"><span class="pill"><svg viewBox="0 0 24 24"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></svg></span>Сборки</button>
   <button class="nb" data-v="browse"><span class="pill"><svg viewBox="0 0 24 24"><path d="M12 10.9c-.61 0-1.1.49-1.1 1.1s.49 1.1 1.1 1.1c.61 0 1.1-.49 1.1-1.1s-.49-1.1-1.1-1.1zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm2.19 12.19L6 18l3.81-8.19L18 6l-3.81 8.19z"/></svg></span>Каталог</button>
@@ -310,6 +325,10 @@ div.prof{cursor:pointer}
 
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const T0=performance.now();
+function splashMsg(k){const e=$("#splashTxt");if(e)e.textContent=tr(k)}
+function hideSplash(){const e=$("#splash");if(!e||e.classList.contains("hide"))return;e.classList.add("hide");setTimeout(()=>e.remove(),700)}
+setTimeout(hideSplash,15000);
 let curView="home",LANG="ru";
 const ICONS={Vanilla:"M12 2 3 7v10l9 5 9-5V7z",Fabric:"M3 6l9-3 9 3-9 3zM3 10l9 3 9-3v4l-9 3-9-3zm0 7l9 3 9-3v2l-9 3-9-3z",Forge:"M3 5h14c0 3-2 4-5 4v3h4l2 3v3H6v-3l2-3h4V9C8 9 5 8 3 5z",NeoForge:"M4 21V3h3l10 13V3h3v18h-3L7 8v13z",Quilt:"M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"};
 const LOADERS=Object.keys(ICONS);
@@ -352,7 +371,7 @@ const I18N={
 "По имени":["By name","За назвою"],"По дате":["By date","За датою"],"По размеру":["By size","За розміром"],"Выбрано":["Selected","Вибрано"],"Включить":["Enable","Увімкнути"],"Выключить":["Disable","Вимкнути"],
 "Снять выделение":["Clear selection","Зняти виділення"],"Выбрать все":["Select all","Вибрати всі"],"Обновить":["Update","Оновити"],"Отпустите, чтобы добавить в":["Drop to add to","Відпустіть, щоб додати до"],
 "Копировать":["Copy","Копіювати"],"Открыть в программе":["Open in viewer","Відкрити в програмі"],"Скопировано":["Copied","Скопійовано"],"Назад":["Back","Назад"],"Вперёд":["Next","Далі"],
-"Плащ":["Cape","Плащ"],"В лаунчере":["In the launcher","У лаунчері"],"Выбирает сборку":["Choosing a profile","Обирає збірку"],"Готовится к запуску":["Preparing to launch","Готується до запуску"],"Играет":["Playing","Грає"],
+"Плащ":["Cape","Плащ"],"Загрузка настроек…":["Loading settings…","Завантаження налаштувань…"],"Загрузка версий…":["Loading versions…","Завантаження версій…"],"Поиск Java…":["Looking for Java…","Пошук Java…"],"В лаунчере":["In the launcher","У лаунчері"],"Выбирает сборку":["Choosing a profile","Обирає збірку"],"Готовится к запуску":["Preparing to launch","Готується до запуску"],"Играет":["Playing","Грає"],
 "Показывать мою активность в Discord":["Show my activity in Discord","Показувати мою активність у Discord"],"Не удалось скачать файлов: ":["Files that failed to download: ","Не вдалося завантажити файлів: "],"Применить плащ":["Apply cape","Застосувати плащ"],"Плащ изменён":["Cape changed","Плащ змінено"],"Без плаща":["No cape","Без плаща"],
 "Войдите через Microsoft, чтобы увидеть плащи":["Sign in with Microsoft to see your capes","Увійдіть через Microsoft, щоб побачити плащі"],"Войдите через Microsoft, чтобы сменить плащ":["Sign in with Microsoft to change the cape","Увійдіть через Microsoft, щоб змінити плащ"],
 "История скинов":["Skin history","Історія скінів"],"Скины, которые вы применяли. Нажмите, чтобы посмотреть и вернуть.":["Skins you’ve applied. Click one to preview and restore it.","Скіни, які ви застосовували. Натисніть, щоб переглянути й повернути."],
@@ -608,13 +627,13 @@ $("#play").onclick=async()=>{
   try{await api.launch({id:p.v,pid:p.id,name:p.n,nick:$("#nick").textContent,ram:Math.max(512,+$("#ram").value||4096),jvm:$("#jvm").value,loader:p.l,lver:p.lv||"",java:$("#java").value});$("#playTxt").textContent=tr("Игра запущена")}
   catch(e){log(tr("Ошибка: ")+tr(errText(e)));snack("Не удалось запустить, подробности в консоли")}
   setTimeout(()=>{running=false;$("#play").disabled=false;updPlay();$("#prog").classList.remove("on");$("#barI").style.width="0"},2000)};
-async function persist(){await api.setConfig({profiles,cur,nick:$("#nick").textContent,ram:$("#ram").value,jvm:$("#jvm").value,java:$("#java").value,lang:$("#lang").value,rpc:$("#rpcOn").checked,v:2})}
+async function persist(){await api.setConfig({profiles,cur,nick:$("#nick").textContent,ram:$("#ram").value,jvm:$("#jvm").value,java:$("#java").value,lang:$("#lang").value,rpc:$("#rpcOn").checked,theme:document.documentElement.dataset.theme||"auto",v:2})}
 
 /* Настройки */
 $("#ram").oninput=e=>{e.target.value=e.target.value.replace(/\D/g,"");updMem();renderHome();persist()};
 $$("#theme button").forEach(b=>b.onclick=()=>{
   $$("#theme button").forEach(x=>x.setAttribute("aria-pressed",x===b));
-  const t=b.dataset.t;t==="auto"?document.documentElement.removeAttribute("data-theme"):document.documentElement.dataset.theme=t;
+  const t=b.dataset.t;t==="auto"?document.documentElement.removeAttribute("data-theme"):document.documentElement.dataset.theme=t;persist();
 });
 
 /* Аккаунт */
@@ -859,6 +878,7 @@ $("#hist").onclick=async e=>{
 };
 
 (async()=>{
+  setLang("auto",true);splashMsg("Загрузка настроек…");
   const c=await api.getConfig();
   setLang(c.lang||"auto",true);
   if(c.profiles){profiles=c.profiles;cur=c.cur||0;$("#nick").textContent=c.nick;$("#av").textContent=c.nick[0].toUpperCase();
@@ -866,15 +886,17 @@ $("#hist").onclick=async e=>{
   updMem();ensureIds();
   try{const a=await api.authState();if(a)setAcc(a)}catch(e){}
   api.on("running",l=>{RUN=new Set(l);for(const k of Object.keys(PS))if(!RUN.has(k))delete PS[k];renderProfiles();updPlay()});
-  try{const v=await api.versions();versions.splice(0,versions.length,...v)}catch(e){log(tr("Нет сети: список версий не обновлён"))}
-  await loadJava(c.java||"auto");
+  splashMsg("Загрузка версий…");try{const v=await api.versions();versions.splice(0,versions.length,...v)}catch(e){log(tr("Нет сети: список версий не обновлён"))}
+  splashMsg("Поиск Java…");await loadJava(c.java||"auto");
   $("#jvm").onchange=$("#java").onchange=persist;
   $("#javaRef").onclick=()=>loadJava(null,true);
   $("#javaAdd").onclick=async()=>{try{const r=await api.javaAdd();if(r){await loadJava(r.path);persist()}}catch(e){const m=String(e.message),i=m.indexOf("Это не Java"),t=i>=0?tr(m.slice(i)):m;log(t);snack(t)}};
   $("#lang").onchange=()=>{setLang($("#lang").value);persist()};
   renderProfiles();fillForm();renderHome();
+  splashMsg("Готово");setTimeout(hideSplash,Math.max(250,1500-(performance.now()-T0)));
   api.icons().then(i=>{Object.assign(REMOTE,i);renderProfiles();fillForm();renderHome()}).catch(()=>{});
   $("#rpcOn").checked=c.rpc!==false;
+  if(c.theme&&c.theme!=="auto"){document.documentElement.dataset.theme=c.theme;$$("#theme button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.t===c.theme))}
   api.rpcInfo().then(i=>{$("#rpcCard").style.display=i.available?"":"none";updPresence()}).catch(()=>{});
   api.appVersion().then(v=>{$("#verTxt").textContent="Nexora Launcher · "+tr("Версия")+" "+v.version}).catch(()=>{});
   api.on("autolaunch",autoLaunch);
