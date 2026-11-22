@@ -134,7 +134,7 @@ async function installForge(L, id, java, log, lver) {
 /* ---------- Запуск ---------- */
 const running = new Map(); // pid сборки -> процесс игры
 const sendRunning = () => win?.webContents.send('running', [...running.keys()]);
-async function launch({ lver, id, pid, name, nick, ram, jvm, loader, java: jsel }) {
+async function launch({ lver, id, pid, name, nick, ram, jvm, loader, java: jsel, ww, wh, fullscreen }) {
   const send = (s, p) => win.webContents.send('progress', s, p), log = t => win.webContents.send('log', t);
   const m = await getJson(MANIFEST), e = m.versions.find(v => v.id === id);
   if (!e) throw new Error('Версия не найдена');
@@ -144,7 +144,7 @@ async function launch({ lver, id, pid, name, nick, ram, jvm, loader, java: jsel 
   const need = base.javaVersion?.majorVersion || 17;
   const java = jsel && jsel !== 'auto' ? jsel : pickJava(await findJava(), need)?.path;
   if (!java) throw new Error('Java не найдена. Нужна Java {0}|' + need);
-  const A = await ensureToken();
+  const A = await launchAuth();
 
   const vdir = path.join(ROOT, 'versions', id), jar = path.join(vdir, id + '.jar');
   fs.mkdirSync(vdir, { recursive: true }); fs.writeFileSync(path.join(vdir, id + '.json'), JSON.stringify(base));
@@ -186,12 +186,15 @@ async function launch({ lver, id, pid, name, nick, ram, jvm, loader, java: jsel 
   const vars = {
     auth_player_name: A ? A.name : nick, version_name: v.id, game_directory: gameDir, assets_root: path.join(ROOT, 'assets'),
     assets_index_name: base.assetIndex.id, auth_uuid: A ? A.uuid : offlineUuid(nick), auth_access_token: A ? A.token : '0', clientid: '', auth_xuid: '',
-    user_type: A ? 'msa' : 'legacy', version_type: base.type, natives_directory: natives, launcher_name: 'Nexora', launcher_version: '0.2.0',
+    user_type: A ? (A.ely ? 'mojang' : 'msa') : 'legacy', version_type: base.type, natives_directory: natives, launcher_name: 'Nexora', launcher_version: '0.2.0',
     classpath: cp, library_directory: path.join(ROOT, 'libraries'), classpath_separator: path.delimiter
   };
   const flat = a => a.flatMap(x => typeof x === 'string' ? [x] : allowed(x.rules) ? [].concat(x.value) : []);
   const fill = s => s.replace(/\$\{(\w+)\}/g, (_, k) => vars[k] ?? '');
-  const args = [`-Xmx${ram}M`, ...(jvm || '').split(/\s+/).filter(Boolean), ...flat(v.arguments.jvm).map(fill), v.mainClass, ...flat(v.arguments.game).map(fill)];
+  const num = n => { n = Math.round(+n); return n >= 200 && n <= 20000 ? n : 0; };
+  const extra = fullscreen ? ['--fullscreen'] : num(ww) && num(wh) ? ['--width', String(num(ww)), '--height', String(num(wh))] : [];
+  const agent = A?.ely ? [`-javaagent:${await ensureAuthlib()}=https://authserver.ely.by/api/authlib-injector`] : [];
+  const args = [`-Xmx${ram}M`, ...agent, ...(jvm || '').split(/\s+/).filter(Boolean), ...flat(v.arguments.jvm).map(fill), v.mainClass, ...flat(v.arguments.game).map(fill), ...extra];
 
   return new Promise((resolve, reject) => {
     const p = spawn(java, args, { cwd: gameDir }); running.set(pid, p);
@@ -272,7 +275,7 @@ function saveAcc() { fs.mkdirSync(ROOT, { recursive: true }); fs.writeFileSync(A
 const accView = () => {
   if (!acc) return null;
   const s = (acc.skins || []).find(x => x.state === 'ACTIVE') || (acc.skins || [])[0];
-  return { name: acc.name, uuid: acc.uuid, skin: s ? { url: s.url, variant: s.variant } : null, capes: (acc.capes || []).map(c => ({ id: c.id, alias: c.alias, url: c.url, active: c.state === 'ACTIVE' })) };
+  return { type: 'ms', name: acc.name, uuid: acc.uuid, skin: s ? { url: s.url, variant: s.variant } : null, capes: (acc.capes || []).map(c => ({ id: c.id, alias: c.alias, url: c.url, active: c.state === 'ACTIVE' })) };
 };
 async function ensureToken() {
   if (!acc) return null;
@@ -292,16 +295,102 @@ async function authLogin() {
     await new Promise(r => setTimeout(r, wait));
     if (authCancelled) throw new Error('Вход отменён');
     const t = await post(MS + '/token', { client_id: CLIENT, grant_type: 'urn:ietf:params:oauth:grant-type:device_code', device_code: d.d.device_code });
-    if (t.ok) { acc = { ...(await mcLogin(t.d.access_token)), refresh: t.d.refresh_token }; saveAcc(); return accView(); }
+    if (t.ok) { acc = { ...(await mcLogin(t.d.access_token)), refresh: t.d.refresh_token }; saveAcc(); setActive('ms'); return activeView(); }
     if (t.d.error === 'slow_down') wait += 5000;
     else if (t.d.error !== 'authorization_pending') throw new Error(t.d.error === 'authorization_declined' ? 'Вход отменён' : 'Не удалось войти: ' + (t.d.error || t.status));
   }
   throw new Error('Время ожидания входа истекло');
 }
-ipcMain.handle('auth:state', () => accView());
+ipcMain.handle('auth:state', () => viewFresh());
 ipcMain.handle('auth:login', authLogin);
 ipcMain.handle('auth:cancel', () => { authCancelled = true; });
-ipcMain.handle('auth:logout', () => { acc = null; fs.rmSync(ACCF, { force: true }); });
+
+/* ---------- Ely.by (Yggdrasil + authlib-injector) и выбор активного аккаунта ---------- */
+const ELYF = path.join(ROOT, 'ely.json'), ACTF = path.join(ROOT, 'active.json'), ELYA = 'https://authserver.ely.by/auth/';
+let ely = null, activeType = null;
+function loadEly() { try { const j = JSON.parse(fs.readFileSync(ELYF, 'utf8')); ely = { ...j, token: decR(j.token) }; } catch { ely = null; } }
+function saveEly() { fs.mkdirSync(ROOT, { recursive: true }); fs.writeFileSync(ELYF, JSON.stringify({ name: ely.name, uuid: ely.uuid, clientToken: ely.clientToken, token: encR(ely.token) })); }
+function loadActive() { try { activeType = JSON.parse(fs.readFileSync(ACTF, 'utf8')).active; } catch { activeType = null; } }
+function setActive(t) { activeType = t; fs.mkdirSync(ROOT, { recursive: true }); fs.writeFileSync(ACTF, JSON.stringify({ active: t })); }
+function curType() {
+  if (activeType === 'ely' && ely) return 'ely';
+  if (activeType === 'ms' && acc) return 'ms';
+  if (activeType === 'offline') return 'offline';
+  return acc ? 'ms' : ely ? 'ely' : 'offline';
+}
+function activeView() {
+  const t = curType();
+  if (t === 'ms') return accView();
+  if (t === 'ely') return { type: 'ely', name: ely.name, uuid: ely.uuid, skin: ely.skin || { url: `https://skinsystem.ely.by/skins/${encodeURIComponent(ely.name)}.png`, variant: 'CLASSIC' }, capes: [] };
+  return null;
+}
+async function elyLogin(username, password, totp) {
+  const clientToken = ely?.clientToken || crypto.randomUUID();
+  const r = await post(ELYA + 'authenticate', { username, password: totp ? `${password}:${totp}` : password, clientToken, requestUser: true }, 1);
+  if (!r.ok) {
+    const m = String(r.d.errorMessage || '');
+    if (/two.?factor/i.test(m)) throw new Error('Нужен код двухфакторной защиты Ely.by');
+    if (/invalid credentials|username or password/i.test(m)) throw new Error('Неверный логин или пароль Ely.by');
+    throw new Error('Ely.by: ' + (m || r.status));
+  }
+  const pr = r.d.selectedProfile || (r.d.availableProfiles || [])[0];
+  if (!pr) throw new Error('На аккаунте Ely.by нет профиля');
+  ely = { name: pr.name, uuid: pr.id, token: r.d.accessToken, clientToken: r.d.clientToken || clientToken }; saveEly(); setActive('ely');
+  return viewFresh();
+}
+async function ensureEly() {
+  if (!ely) return null;
+  const v = await fetch(ELYA + 'validate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessToken: ely.token, clientToken: ely.clientToken }) });
+  if (!v.ok) {
+    const r = await post(ELYA + 'refresh', { accessToken: ely.token, clientToken: ely.clientToken }, 1);
+    if (!r.ok) throw new Error('Сессия Ely.by истекла, войдите заново');
+    ely.token = r.d.accessToken; if (r.d.clientToken) ely.clientToken = r.d.clientToken; saveEly();
+  }
+  return { name: ely.name, uuid: ely.uuid, token: ely.token, ely: true };
+}
+// Актуальный скин Ely.by (с типом рук) — из публичной системы скинов
+async function elySkinRefresh() {
+  if (!ely) return;
+  try {
+    const r = await fetch(`https://skinsystem.ely.by/textures/${encodeURIComponent(ely.name)}`);
+    if (r.ok) { const j = await r.json(); if (j.SKIN?.url) ely.skin = { url: j.SKIN.url, variant: j.SKIN.metadata?.model === 'slim' ? 'SLIM' : 'CLASSIC' }; }
+  } catch {}
+}
+async function viewFresh() { if (curType() === 'ely') await elySkinRefresh(); return activeView(); }
+// Смена скина Ely.by: пробуем Mojang-совместимый API Ely.by, при отказе открываем сайт
+async function elyApplySkin(variant) {
+  if (!pickedSkin) throw new Error('Сначала выберите файл скина');
+  const A = await ensureEly(), model = variant === 'slim' ? 'slim' : 'classic';
+  let ok = false;
+  try {
+    const fd = new FormData(); fd.append('variant', model); fd.append('file', new Blob([pickedSkin], { type: 'image/png' }), 'skin.png');
+    const r = await fetch('https://account.ely.by/api/mojang/services/minecraft/profile/skins', { method: 'POST', headers: { Authorization: 'Bearer ' + A.token }, body: fd });
+    ok = r.ok;
+  } catch {}
+  addHist(pickedSkin, model, ok ? 'applied' : 'saved');
+  if (!ok) { shell.openExternal('https://ely.by/skins'); throw new Error('Ely.by не принял скин напрямую: открыта страница Ely.by, загрузите файл там'); }
+  return viewFresh();
+}
+ipcMain.handle('img:fetch', async (_, url) => {
+  const u = new URL(String(url).replace(/^http:/, 'https:'));
+  if (!['textures.minecraft.net', 'skinsystem.ely.by', 'ely.by'].includes(u.hostname)) throw new Error('bad host');
+  const r = await fetch(u); if (!r.ok) throw new Error('Не удалось загрузить скин');
+  return 'data:image/png;base64,' + Buffer.from(await r.arrayBuffer()).toString('base64');
+});
+async function launchAuth() { const t = curType(); return t === 'ms' ? ensureToken() : t === 'ely' ? ensureEly() : null; }
+async function ensureAuthlib() {
+  const f = path.join(ROOT, 'authlib-injector.jar'); if (fs.existsSync(f)) return f;
+  let meta; for (const u of ['https://authlib-injector.yushi.moe/artifact/latest.json', 'https://bmclapi2.bangbang93.com/mirrors/authlib-injector/artifact/latest.json']) { try { meta = await getJson(u); break; } catch {} }
+  if (!meta?.download_url || !String(meta.download_url).startsWith('https://')) throw new Error('Не удалось скачать authlib-injector');
+  await download(meta.download_url, f); return f;
+}
+ipcMain.handle('auth:list', () => ({ active: curType(), ms: acc?.name || null, ely: ely?.name || null }));
+ipcMain.handle('auth:select', (_, t) => { if (['ms', 'ely', 'offline'].includes(t)) setActive(t); return viewFresh(); });
+ipcMain.handle('auth:logout', (_, t) => {
+  if (t === 'ely') { ely = null; fs.rmSync(ELYF, { force: true }); } else if (t === 'ms') { acc = null; fs.rmSync(ACCF, { force: true }); }
+  return activeView();
+});
+ipcMain.handle('ely:login', (_, o) => elyLogin(String(o.username || ''), String(o.password || ''), String(o.totp || '')));
 
 /* ---------- Скины ---------- */
 let pickedSkin = null;
@@ -336,6 +425,7 @@ ipcMain.handle('skin:pick', async () => {
   pickedSkin = b; return 'data:image/png;base64,' + b.toString('base64');
 });
 ipcMain.handle('skin:apply', async (_, variant) => {
+  if (curType() === 'ely') return elyApplySkin(variant);
   if (!acc) throw new Error('Войдите через Microsoft, чтобы сменить скин');
   if (!pickedSkin) throw new Error('Сначала выберите файл скина');
   const A = await ensureToken(), fd = new FormData();
@@ -352,7 +442,7 @@ ipcMain.handle('game:stop', (_, pid) => { running.get(pid)?.kill(); });
 
 /* ---------- Modrinth: каталог и обновления ---------- */
 const mr = async (p, opt = {}) => { const r = await fetch('https://api.modrinth.com/v2' + p, { ...opt, headers: { 'User-Agent': 'NexoraLauncher/0.3.0', 'Content-Type': 'application/json' } }); if (!r.ok) throw new Error('Modrinth: ' + r.status); return r.json(); };
-const PT = { mods: 'mod', resourcepacks: 'resourcepack', shaderpacks: 'shader' };
+const PT = { mods: 'mod', resourcepacks: 'resourcepack', shaderpacks: 'shader', modpacks: 'modpack' };
 const ldrs = l => ({ Fabric: ['fabric'], Quilt: ['quilt', 'fabric'], Forge: ['forge'], NeoForge: ['neoforge'] }[l] || []);
 ipcMain.handle('mr:search', async (_, { kind, q, mc, loader, sort, cats, offset, compat }) => {
   if (!PT[kind]) throw new Error('bad kind');
@@ -419,6 +509,57 @@ ipcMain.handle('icon:pick', async () => {
   const { width: w, height: h } = img.getSize(), sq = Math.min(w, h);
   img = img.crop({ x: Math.floor((w - sq) / 2), y: Math.floor((h - sq) / 2), width: sq, height: sq }).resize({ width: 128, height: 128, quality: 'best' });
   return 'data:image/png;base64,' + img.toPNG().toString('base64');
+});
+async function loaderVer(L, mc, lver) {
+  if (lver) return lver; L = L.toLowerCase();
+  if (L === 'fabric' || L === 'quilt') { const lv = await getJson(`${L === 'fabric' ? 'https://meta.fabricmc.net/v2' : 'https://meta.quiltmc.org/v3'}/versions/loader/${mc}`); return (lv.find(x => x.loader.stable !== false) || lv[0])?.loader.version; }
+  if (L === 'forge') { const pr = (await getJson('https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json')).promos; return pr[mc + '-recommended'] || pr[mc + '-latest']; }
+  const [, a, b] = mc.split('.'); return (await getJson('https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge')).versions.filter(v => v.startsWith(`${a}.${b || 0}.`) && !v.includes('-')).pop();
+}
+// Экспорт в .mrpack: файлы с Modrinth — ссылками, остальное — в overrides
+ipcMain.handle('mrpack:export', async (_, pid, meta, worlds) => {
+  const base = inst(pid);
+  const r = await dialog.showSaveDialog(win, { defaultPath: String(meta.n || 'pack').replace(/[^\w.-]+/g, '_') + '.mrpack', filters: [{ name: 'Modrinth modpack', extensions: ['mrpack'] }] });
+  if (r.canceled) return null;
+  const lst = (k, re) => { try { return fs.readdirSync(path.join(base, k), { withFileTypes: true }).filter(e => e.isFile() && re.test(e.name)).map(e => k + '/' + e.name); } catch { return []; } };
+  const hs = [...lst('mods', /\.jar$/i), ...lst('resourcepacks', /\.zip$/i), ...lst('shaderpacks', /\.zip$/i)].map(rel => ({ rel, h: sha1(path.join(base, rel)) }));
+  const known = hs.length ? await mr('/version_files', { method: 'POST', body: JSON.stringify({ hashes: hs.map(x => x.h), algorithm: 'sha1' }) }) : {};
+  const files = [], over = [];
+  for (const x of hs) {
+    const f = known[x.h]?.files.find(y => y.hashes?.sha1 === x.h);
+    if (f && f.hashes.sha512 && String(f.url).startsWith('https://cdn.modrinth.com/')) files.push({ path: x.rel, hashes: { sha1: x.h, sha512: f.hashes.sha512 }, env: { client: 'required', server: 'required' }, downloads: [f.url], fileSize: f.size });
+    else over.push(x.rel);
+  }
+  const bundled = over.length;
+  for (const d of ['config', 'defaultconfigs', 'kubejs', 'scripts', ...(worlds ? ['saves'] : [])]) walk(base, d, over);
+  for (const f of ['options.txt', 'servers.dat']) if (fs.existsSync(path.join(base, f))) over.push(f);
+  const dep = { minecraft: meta.v };
+  if (meta.l !== 'Vanilla') { const lv = await loaderVer(meta.l, meta.v, meta.lv); if (lv) dep[{ Fabric: 'fabric-loader', Quilt: 'quilt-loader', Forge: 'forge', NeoForge: 'neoforge' }[meta.l]] = lv; }
+  const index = { formatVersion: 1, game: 'minecraft', versionId: '1.0.0', name: meta.n, summary: 'Exported from Nexora Launcher', files, dependencies: dep };
+  fs.writeFileSync(r.filePath, zipWrite([{ name: 'modrinth.index.json', data: Buffer.from(JSON.stringify(index, null, 2)) }, ...over.map(rel => ({ name: 'overrides/' + rel, data: fs.readFileSync(path.join(base, rel)) }))]));
+  return { files: files.length, bundled };
+});
+async function iconData(url) {
+  try {
+    if (!String(url).startsWith('https://cdn.modrinth.com/')) return undefined;
+    const r = await fetch(url); if (!r.ok) return undefined;
+    let img = nativeImage.createFromBuffer(Buffer.from(await r.arrayBuffer())); if (img.isEmpty()) return undefined;
+    const { width: w, height: h } = img.getSize(), sq = Math.min(w, h);
+    img = img.crop({ x: Math.floor((w - sq) / 2), y: Math.floor((h - sq) / 2), width: sq, height: sq }).resize({ width: 128, height: 128, quality: 'best' });
+    return 'data:image/png;base64,' + img.toPNG().toString('base64');
+  } catch { return undefined; }
+}
+// Установка модпака из каталога Modrinth как новой сборки
+ipcMain.handle('mr:modpack', async (_, { projectId, versionId, pid }) => {
+  const p = await mr('/project/' + encodeURIComponent(projectId));
+  const v = versionId ? await mr('/version/' + encodeURIComponent(versionId)) : (await mr(`/project/${encodeURIComponent(projectId)}/version`))[0];
+  if (!v) throw new Error('Нет подходящих версий');
+  const f = v.files.find(x => x.primary) || v.files[0];
+  if (!f || !/\.mrpack$/i.test(f.filename) || !String(f.url).startsWith('https://cdn.modrinth.com/')) throw new Error('В этой версии нет файла .mrpack');
+  const r = await fetch(f.url); if (!r.ok) throw new Error('Modrinth: ' + r.status);
+  const m = await importMrpack(zipRead(Buffer.from(await r.arrayBuffer())), pid, o => win.webContents.send('impprog', o));
+  m.n = m.n || p.title; m.img = await iconData(p.icon_url);
+  return m;
 });
 const hashMemo = new Map(), idCache = new Map();
 const sha1 = f => { const st = fs.statSync(f), k = f + st.size + st.mtimeMs; if (!hashMemo.has(k)) hashMemo.set(k, crypto.createHash('sha1').update(fs.readFileSync(f)).digest('hex')); return hashMemo.get(k); };
@@ -624,7 +765,7 @@ ipcMain.handle('srv:rm', (_, pid, i) => { const r = srvLoad(pid); r.servers.v.a.
 
 /* ---------- Discord Rich Presence (IPC без внешних библиотек) ---------- */
 // Application ID из https://discord.com/developers/applications (New Application). Пока пусто — Rich Presence выключен.
-const DISCORD_CLIENT_ID = process.env.NEXORA_DISCORD_ID || '';
+const DISCORD_CLIENT_ID = process.env.NEXORA_DISCORD_ID || '1573652512462872728';
 const net = require('net');
 const rpc = { sock: null, ready: false, connecting: false, last: null, want: null, retry: null };
 function rpcPaths() {
@@ -720,7 +861,7 @@ ipcMain.handle('upd:install', () => autoUpdater?.quitAndInstall());
 
 app.whenReady().then(() => {
   if (!gotLock) { app.quit(); return; }
-  loadAcc();
+  loadAcc(); loadEly(); loadActive();
   win = new BrowserWindow({
     width: 1100, height: 720, minWidth: 720, minHeight: 560, title: 'Nexora Launcher', autoHideMenuBar: true,
     show: false, icon: path.join(__dirname, 'build', 'icon.png'), backgroundColor: nativeTheme.shouldUseDarkColors ? '#141218' : '#FEF7FF',

@@ -182,6 +182,10 @@ div.prof{cursor:pointer}
 @keyframes spPulse{0%,100%{filter:drop-shadow(0 0 0 rgba(103,80,164,0))}50%{filter:drop-shadow(0 0 22px rgba(103,80,164,.55))}}
 @keyframes spDraw{to{stroke-dashoffset:0}}
 @keyframes spBar{from{left:-40%}to{left:100%}}
+.field input[type=password]{background:var(--sc-highest);border:0;border-bottom:2px solid var(--outline);border-radius:8px 8px 0 0;padding:14px 12px;width:100%}
+.field input[type=password]:focus{border-color:var(--primary);outline:none}
+.arow{display:flex;align-items:center;gap:10px;padding:8px 4px}
+.arow .grow{flex:1;min-width:0}.arow input[type=radio]{accent-color:var(--primary);width:18px;height:18px}
 </style>
 </head>
 <body>
@@ -241,16 +245,17 @@ div.prof{cursor:pointer}
   <section class="view" id="v-browse">
     <div class="card" style="margin-bottom:16px">
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
-        <div class="field" style="margin:0;min-width:200px"><label>Устанавливать в сборку</label><select id="bTarget"></select></div>
-        <div class="seg" id="bKind"><button data-k="mods" aria-pressed="true">Моды</button><button data-k="resourcepacks" aria-pressed="false">Ресурсы</button><button data-k="shaderpacks" aria-pressed="false">Шейдеры</button></div>
+        <div class="field" id="bTargetW" style="margin:0;min-width:200px"><label>Устанавливать в сборку</label><select id="bTarget"></select></div>
+        <div class="seg" id="bKind"><button data-k="mods" aria-pressed="true">Моды</button><button data-k="resourcepacks" aria-pressed="false">Ресурсы</button><button data-k="shaderpacks" aria-pressed="false">Шейдеры</button><button data-k="modpacks" aria-pressed="false">Модпаки</button></div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center">
         <div class="field" style="margin:0;flex:1;min-width:200px"><input type="text" id="bq" placeholder="Поиск" aria-label="Поиск"></div>
         <div class="field" style="margin:0"><select id="bSort" aria-label="Сортировка"><option value="downloads">Популярные</option><option value="relevance">По релевантности</option><option value="newest">Новые</option><option value="updated">Обновлённые</option></select></div>
-        <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="bCompat" checked style="accent-color:var(--primary)"><span>Только для моей сборки</span></label>
+        <label id="bCompatW" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="bCompat" checked style="accent-color:var(--primary)"><span>Только для моей сборки</span></label>
       </div>
       <div class="lgs" id="bCats" style="margin-top:12px"></div>
     </div>
+    <p class="sub" id="bStat"></p>
     <div class="bgrid" id="bRes"></div>
     <div style="text-align:center;margin:16px"><button class="btn t" id="bMore" style="display:none">Показать ещё</button></div>
   </section>
@@ -302,18 +307,20 @@ div.prof{cursor:pointer}
 </main>
 
 <div class="dlg" id="dlg" role="dialog" aria-modal="true" aria-labelledby="dt">
-  <div class="card">
-    <h2 id="dt">Вход в аккаунт</h2>
-    <div id="accOut" style="display:none">
-      <p class="sub" style="margin-bottom:12px"><span>Вы вошли как</span> <strong id="accName"></strong></p>
-      <div class="acts"><button class="btn t" id="accClose">Закрыть</button><button class="btn" id="accLogout">Выйти</button></div>
+  <div class="card" style="max-height:90vh;overflow:auto">
+    <h2 id="dt">Аккаунты</h2>
+    <div id="accList" style="margin-bottom:8px"></div>
+    <div id="accAdd" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"></div>
+    <div id="msBox" style="display:none;margin-bottom:12px"><p class="sub">Введите этот код на странице Microsoft (она откроется в браузере):</p><div id="msCode" style="font:700 28px/1.4 ui-monospace,Menlo,monospace;letter-spacing:4px;margin:8px 0;user-select:all"></div><p class="sub" id="msState">Ожидание входа…</p></div>
+    <div id="elyBox" style="display:none;margin-bottom:12px">
+      <div class="field"><label for="elyU">Логин или e-mail Ely.by</label><input type="text" id="elyU" autocomplete="username"></div>
+      <div class="field"><label for="elyP">Пароль</label><input type="password" id="elyP" autocomplete="current-password"></div>
+      <div class="field" id="elyTW" style="display:none"><label for="elyT">Код двухфакторной защиты</label><input type="text" id="elyT" inputmode="numeric" autocomplete="one-time-code"></div>
+      <p class="sub" id="elyState" style="margin-bottom:8px"></p>
+      <button class="btn" id="elyGo">Войти</button>
     </div>
-    <div id="accIn">
-      <div id="msBox" style="display:none;margin-bottom:12px"><p class="sub">Введите этот код на странице Microsoft (она откроется в браузере):</p><div id="msCode" style="font:700 28px/1.4 ui-monospace,Menlo,monospace;letter-spacing:4px;margin:8px 0;user-select:all"></div><p class="sub" id="msState">Ожидание входа…</p></div>
-      <div class="field"><label for="nin">Ник для офлайн-режима</label><input type="text" id="nin" maxlength="16"></div>
-      <button class="btn" id="ms" style="width:100%;margin-bottom:8px;background:var(--sc-highest);color:var(--on-surface)">Войти через Microsoft</button>
-      <div class="acts"><button class="btn t" id="cancel">Отмена</button><button class="btn" id="ok">Сохранить ник</button></div>
-    </div>
+    <div class="field"><label for="nin">Ник для офлайн-режима</label><input type="text" id="nin" maxlength="16"></div>
+    <div class="acts"><button class="btn t" id="accClose">Закрыть</button><button class="btn" id="ok">Сохранить ник</button></div>
   </div>
 </div>
 <div class="dlg" id="pdlg" role="dialog" aria-modal="true"><div class="card" id="pBody" style="width:min(520px,100%);max-height:85vh;overflow:auto"></div></div>
@@ -371,7 +378,17 @@ const I18N={
 "По имени":["By name","За назвою"],"По дате":["By date","За датою"],"По размеру":["By size","За розміром"],"Выбрано":["Selected","Вибрано"],"Включить":["Enable","Увімкнути"],"Выключить":["Disable","Вимкнути"],
 "Снять выделение":["Clear selection","Зняти виділення"],"Выбрать все":["Select all","Вибрати всі"],"Обновить":["Update","Оновити"],"Отпустите, чтобы добавить в":["Drop to add to","Відпустіть, щоб додати до"],
 "Копировать":["Copy","Копіювати"],"Открыть в программе":["Open in viewer","Відкрити в програмі"],"Скопировано":["Copied","Скопійовано"],"Назад":["Back","Назад"],"Вперёд":["Next","Далі"],
-"Плащ":["Cape","Плащ"],"Загрузка настроек…":["Loading settings…","Завантаження налаштувань…"],"Загрузка версий…":["Loading versions…","Завантаження версій…"],"Поиск Java…":["Looking for Java…","Пошук Java…"],"В лаунчере":["In the launcher","У лаунчері"],"Выбирает сборку":["Choosing a profile","Обирає збірку"],"Готовится к запуску":["Preparing to launch","Готується до запуску"],"Играет":["Playing","Грає"],
+"Плащ":["Cape","Плащ"],"Не удалось загрузить скин":["Couldn’t load the skin","Не вдалося завантажити скін"],
+"Плащи доступны только для аккаунта Microsoft":["Capes are only available for Microsoft accounts","Плащі доступні лише для акаунта Microsoft"],
+"Ely.by не принял скин напрямую: открыта страница Ely.by, загрузите файл там":["Ely.by didn’t accept the skin directly: the Ely.by page is open, upload the file there","Ely.by не прийняв скін напряму: відкрито сторінку Ely.by, завантажте файл там"],"Аккаунты":["Accounts","Акаунти"],"Офлайн":["Offline","Офлайн"],"Войти через Ely.by":["Sign in with Ely.by","Увійти через Ely.by"],
+"Логин или e-mail Ely.by":["Ely.by username or e-mail","Логін або e-mail Ely.by"],"Пароль":["Password","Пароль"],"Код двухфакторной защиты":["Two-factor code","Код двофакторного захисту"],"Войти":["Sign in","Увійти"],
+"Нужен код двухфакторной защиты Ely.by":["Ely.by two-factor code required","Потрібен код двофакторного захисту Ely.by"],"Неверный логин или пароль Ely.by":["Wrong Ely.by username or password","Невірний логін або пароль Ely.by"],
+"На аккаунте Ely.by нет профиля":["No profile on this Ely.by account","На акаунті Ely.by немає профілю"],"Сессия Ely.by истекла, войдите заново":["Ely.by session expired, sign in again","Сесія Ely.by завершилась, увійдіть знову"],
+"Не удалось скачать authlib-injector":["Couldn’t download authlib-injector","Не вдалося завантажити authlib-injector"],"Смена скина доступна только для аккаунта Microsoft":["Skin change is only available for Microsoft accounts","Зміна скіна доступна лише для акаунта Microsoft"],
+"Память (МБ)":["Memory (MB)","Пам’ять (МБ)"],"Как в настройках лаунчера":["Same as launcher settings","Як у налаштуваннях лаунчера"],"Свои аргументы JVM (заменяют глобальные)":["Custom JVM arguments (replace global)","Власні аргументи JVM (замінюють глобальні)"],
+"Ширина окна":["Window width","Ширина вікна"],"Высота окна":["Window height","Висота вікна"],"Полный экран":["Fullscreen","Повний екран"],
+"Экспорт в .mrpack":["Export to .mrpack","Експорт у .mrpack"],"Моды не из Modrinth будут вложены в архив":["Mods not from Modrinth will be bundled in the archive","Моди не з Modrinth буде вкладено в архів"],"вложено":["bundled","вкладено"],
+"Модпаки":["Modpacks","Модпаки"],"Установить сборку":["Install modpack","Встановити збірку"],"В этой версии нет файла .mrpack":["This version has no .mrpack file","У цій версії немає файлу .mrpack"],"Загрузка настроек…":["Loading settings…","Завантаження налаштувань…"],"Загрузка версий…":["Loading versions…","Завантаження версій…"],"Поиск Java…":["Looking for Java…","Пошук Java…"],"В лаунчере":["In the launcher","У лаунчері"],"Выбирает сборку":["Choosing a profile","Обирає збірку"],"Готовится к запуску":["Preparing to launch","Готується до запуску"],"Играет":["Playing","Грає"],
 "Показывать мою активность в Discord":["Show my activity in Discord","Показувати мою активність у Discord"],"Не удалось скачать файлов: ":["Files that failed to download: ","Не вдалося завантажити файлів: "],"Применить плащ":["Apply cape","Застосувати плащ"],"Плащ изменён":["Cape changed","Плащ змінено"],"Без плаща":["No cape","Без плаща"],
 "Войдите через Microsoft, чтобы увидеть плащи":["Sign in with Microsoft to see your capes","Увійдіть через Microsoft, щоб побачити плащі"],"Войдите через Microsoft, чтобы сменить плащ":["Sign in with Microsoft to change the cape","Увійдіть через Microsoft, щоб змінити плащ"],
 "История скинов":["Skin history","Історія скінів"],"Скины, которые вы применяли. Нажмите, чтобы посмотреть и вернуть.":["Skins you’ve applied. Click one to preview and restore it.","Скіни, які ви застосовували. Натисніть, щоб переглянути й повернути."],
@@ -496,8 +513,8 @@ $("#plist").onclick=e=>{
   persist();renderProfiles();renderHome();
   if(a==="edit")openEdit("ver");
 };
-function askConfirm(title,text,chk){return new Promise(res=>{
-  $("#cTitle").textContent=title;$("#cText").textContent=text;$("#cChk").checked=false;
+function askConfirm(title,text,chk,yes){return new Promise(res=>{
+  $("#cYes").textContent=yes||tr("Удалить");$("#cTitle").textContent=title;$("#cText").textContent=text;$("#cChk").checked=false;
   $("#cChkW").style.display=chk?"flex":"none";if(chk)$("#cChkT").textContent=chk;
   const d=$("#cdlg"),done=v=>{d.classList.remove("on");res(v)};
   $("#cNo").onclick=()=>done(null);$("#cYes").onclick=()=>done({files:$("#cChk").checked});d.classList.add("on")})}
@@ -513,7 +530,7 @@ async function delProfile(i){
 $("#addP").onclick=()=>{profiles.push({id:"p"+Date.now().toString(36),n:tr("Новая сборка"),v:versions[0],l:"Vanilla"});cur=profiles.length-1;persist();renderProfiles();renderHome();openEdit("ver")};
 $("#editBack").onclick=()=>show("profiles");
 
-const TABS=[["ver","Версия / Загрузчик"],["mods","Моды"],["resourcepacks","Наборы ресурсов"],["shaderpacks","Наборы шейдеров"],["worlds","Миры"],["servers","Серверы"],["screenshots","Скриншоты"]];
+const TABS=[["ver","Версия / Загрузчик"],["settings","Настройки"],["mods","Моды"],["resourcepacks","Наборы ресурсов"],["shaderpacks","Наборы шейдеров"],["worlds","Миры"],["servers","Серверы"],["screenshots","Скриншоты"]];
 function openEdit(t){editTab=t||"ver";show("edit");renderEdit()}
 function renderEdit(){
   $("#editName").textContent=profiles[cur].n;
@@ -531,8 +548,17 @@ async function renderTab(){
     body.innerHTML=`<div class="field"><label>${tr("Название")}</label><input type="text" id="pn" value="${esc(p.n)}"></div><div class="field"><label>${tr("Версия Minecraft")}</label><select id="pv">${vs.map(v=>`<option${v===p.v?" selected":""}>${v}</option>`).join("")}</select></div><div class="field"><label>${tr("Загрузчик")}</label><div class="lgs" id="loader" role="group"></div></div><div class="field"><label>${tr("Версия загрузчика")}</label><select id="plv"></select></div>
 <div class="field"><label>${tr("Цвет")}</label><div class="lgs">${COLORS.map(c=>`<button class="sw" data-act="col" data-v="${c}" style="background:${c}" aria-pressed="${c===p.col}" aria-label="${c}"></button>`).join("")}<button data-act="col" data-v="">${tr("Сбросить")}</button></div></div>
 <div class="field"><label>${tr("Значок")}</label><div class="lgs">${EMOJI.map(m=>`<button data-act="em" data-v="${m}" aria-pressed="${m===p.em}">${m}</button>`).join("")}<button data-act="img">${tr("Своя картинка…")}</button><button data-act="em" data-v="">${tr("Сбросить")}</button></div></div>
-<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-act="export">${tr("Экспорт сборки")}</button><button class="btn t" data-act="dup">${tr("Дублировать")}</button><button class="btn t" data-act="shortcut">${tr("Ярлык на рабочем столе")}</button></div>`;
+<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-act="export">${tr("Экспорт сборки")}</button><button class="btn" data-act="mrexport">${tr("Экспорт в .mrpack")}</button><button class="btn t" data-act="dup">${tr("Дублировать")}</button><button class="btn t" data-act="shortcut">${tr("Ярлык на рабочем столе")}</button></div>`;
     renderLoaders(p.l);loadLV();return;
+  }
+  if(k==="settings"){
+    let jl=[];try{jl=await api.java()}catch(e){}
+    if(k!==editTab)return;
+    body.innerHTML=`<div class="field"><label>${tr("Память (МБ)")}</label><input type="text" inputmode="numeric" id="sRam" value="${p.ram||""}" placeholder="${esc($("#ram").value)}"><small class="sub">${p.ram?fmtMem(p.ram):tr("Как в настройках лаунчера")}</small></div>
+<div class="field"><label>Java</label><select id="sJava"><option value="">${tr("Как в настройках лаунчера")}</option><option value="auto">${tr("Автоматически (рекомендуется)")}</option>${jl.map(j=>`<option value="${esc(j.path)}">Java ${j.major} (${esc(j.version)}${j.vendor?", "+esc(j.vendor):""})</option>`).join("")}</select></div>
+<div class="field"><label>${tr("Свои аргументы JVM (заменяют глобальные)")}</label><input type="text" id="sJvm" value="${esc(p.jvm||"")}" placeholder="${esc($("#jvm").value)}"></div>
+<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end"><div class="field" style="margin:0;width:120px"><label>${tr("Ширина окна")}</label><input type="text" inputmode="numeric" id="sW" value="${p.ww||""}"></div><div class="field" style="margin:0;width:120px"><label>${tr("Высота окна")}</label><input type="text" inputmode="numeric" id="sH" value="${p.wh||""}"></div><label style="display:flex;gap:6px;align-items:center;padding-bottom:10px"><input type="checkbox" id="sFs" ${p.fullscreen?"checked":""} style="accent-color:var(--primary)"><span>${tr("Полный экран")}</span></label></div>`;
+    $("#sJava").value=p.java||"";return;
   }
   if(k==="servers"){
     const L=await api.srvList(p.id);if(k!==editTab)return;
@@ -592,6 +618,7 @@ $("#tabBody").onclick=async e=>{
     else if(a==="export"){const r=await askConfirm(tr("Экспорт сборки"),p.n,tr("Включить миры"),tr("Экспортировать"));if(!r)return;if(await api.profileExport(p.id,{n:p.n,v:p.v,l:p.l,lv:p.lv||"",col:p.col,em:p.em,img:p.img},r.files))snack("Готово")}
     else if(a==="dup"){const id="p"+Date.now().toString(36);await api.profileCopy(p.id,id);profiles.push({...p,id,n:p.n+" "+tr("(копия)")});persist();renderProfiles();snack("Сборка скопирована")}
     else if(a==="shortcut"){await api.shortcutCreate(p.id,p.n,p.img);snack("Ярлык создан на рабочем столе")}
+    else if(a==="mrexport"){const r=await askConfirm(tr("Экспорт в .mrpack"),p.n+" — "+tr("Моды не из Modrinth будут вложены в архив"),tr("Включить миры"),tr("Экспортировать"));if(!r)return;snack("Загрузка…");const o=await api.mrpackExport(p.id,{n:p.n,v:p.v,l:p.l,lv:p.lv||""},r.files);if(o)snack(tr("Готово")+" · Modrinth: "+o.files+", "+tr("вложено")+": "+o.bundled)}
   }catch(er){snack(errText(er))}
   (editTab==="servers"||editTab==="ver"?renderTab:loadList)();
 };
@@ -600,6 +627,12 @@ $("#tabBody").onchange=e=>{
   if(e.target.id==="pv"){setP({v:e.target.value});loadLV()}
   if(e.target.id==="plv")setP({lv:e.target.value});
   if(e.target.id==="fs"){FS=e.target.value;drawList()}
+  {const id=e.target.id,v=e.target.value;
+    if(id==="sRam"){setP({ram:parseInt(v.replace(/\D/g,""))||undefined});renderTab()}
+    else if(id==="sJava")setP({java:v||undefined});
+    else if(id==="sJvm")setP({jvm:v.trim()||undefined});
+    else if(id==="sW"||id==="sH")setP({[id==="sW"?"ww":"wh"]:parseInt(v)||undefined});
+    else if(id==="sFs")setP({fullscreen:e.target.checked||undefined})}
 };
 $("#tabBody").onkeydown=e=>{if(e.key==="Enter"&&e.target.id==="cq")$('[data-act="csearch"]').click()};
 $("#tabBody").oninput=e=>{if(e.target.id==="fq"){FQ=e.target.value;drawList()}};
@@ -624,10 +657,10 @@ api.on("log",t=>log(tr(t)));
 $("#play").onclick=async()=>{
   if(running)return;const p=profiles[cur];if(!p){$("#addP").click();return}if(RUN.has(p.id)){api.stop(p.id);return}
     running=true;$("#play").disabled=true;updPresence();$("#playTxt").textContent=tr("Загрузка…");$("#prog").classList.add("on");
-  try{await api.launch({id:p.v,pid:p.id,name:p.n,nick:$("#nick").textContent,ram:Math.max(512,+$("#ram").value||4096),jvm:$("#jvm").value,loader:p.l,lver:p.lv||"",java:$("#java").value});$("#playTxt").textContent=tr("Игра запущена")}
+  try{await api.launch({id:p.v,pid:p.id,name:p.n,nick:OFFN,ram:Math.max(512,+(p.ram||$("#ram").value)||4096),jvm:p.jvm?p.jvm:$("#jvm").value,loader:p.l,lver:p.lv||"",java:p.java||$("#java").value,ww:p.ww,wh:p.wh,fullscreen:!!p.fullscreen});$("#playTxt").textContent=tr("Игра запущена")}
   catch(e){log(tr("Ошибка: ")+tr(errText(e)));snack("Не удалось запустить, подробности в консоли")}
   setTimeout(()=>{running=false;$("#play").disabled=false;updPlay();$("#prog").classList.remove("on");$("#barI").style.width="0"},2000)};
-async function persist(){await api.setConfig({profiles,cur,nick:$("#nick").textContent,ram:$("#ram").value,jvm:$("#jvm").value,java:$("#java").value,lang:$("#lang").value,rpc:$("#rpcOn").checked,theme:document.documentElement.dataset.theme||"auto",v:2})}
+async function persist(){await api.setConfig({profiles,cur,nick:OFFN,ram:$("#ram").value,jvm:$("#jvm").value,java:$("#java").value,lang:$("#lang").value,rpc:$("#rpcOn").checked,theme:document.documentElement.dataset.theme||"auto",v:2})}
 
 /* Настройки */
 $("#ram").oninput=e=>{e.target.value=e.target.value.replace(/\D/g,"");updMem();renderHome();persist()};
@@ -640,22 +673,45 @@ $$("#theme button").forEach(b=>b.onclick=()=>{
 let ACC=null,UPD=[],TEXH=64;
 const COLORS=["#6750A4","#B3261E","#E8710A","#2E7D32","#0B8043","#1A73E8","#C2185B","#5F6368"],EMOJI=["⛏️","🗡️","🏰","🚀","🌲","🔥","💎","🐉"];
 const dlg=$("#dlg");
-function setAcc(a){ACC=a;if(a){$("#nick").textContent=a.name;$("#av").textContent=a.name[0].toUpperCase()}}
-$("#acct").onclick=()=>{
-  $("#accOut").style.display=ACC?"":"none";$("#accIn").style.display=ACC?"none":"";
-  if(ACC)$("#accName").textContent=ACC.name;else{$("#nin").value=$("#nick").textContent;$("#msBox").style.display="none"}
-  dlg.classList.add("on");
+let OFFN="Steve";
+const chip=()=>{const n=ACC?ACC.name:OFFN;$("#nick").textContent=n;$("#av").textContent=(n||"?")[0].toUpperCase()};
+function setAcc(a){ACC=a;chip()}
+const ATYPE={ms:"Microsoft",ely:"Ely.by"};
+async function accRender(){
+  let L={active:"offline"};try{L=await api.authList()}catch(e){}
+  const row=(t,name,out)=>`<div class="arow"><input type="radio" name="accsel" data-t="${t}" ${L.active===t?"checked":""} aria-label="${esc(name)}"><span class="grow"><strong>${esc(name)}</strong> <small>${t==="offline"?tr("Офлайн"):ATYPE[t]}</small></span>${out?`<button class="btn t" data-out="${t}">${tr("Выйти")}</button>`:""}</div>`;
+  $("#accList").innerHTML=row("offline",OFFN,false)+(L.ms?row("ms",L.ms,true):"")+(L.ely?row("ely",L.ely,true):"");
+  $("#accAdd").innerHTML=(L.ms?"":`<button class="btn" data-add="ms">${tr("Войти через Microsoft")}</button>`)+(L.ely?"":`<button class="btn" data-add="ely">${tr("Войти через Ely.by")}</button>`);
+  $("#nin").value=OFFN;
+}
+$("#acct").onclick=()=>{$("#msBox").style.display="none";$("#elyBox").style.display="none";accRender();dlg.classList.add("on")};
+$("#accClose").onclick=()=>{api.authCancel();dlg.classList.remove("on")};
+$("#accList").onclick=async e=>{
+  const r=e.target.closest("input[data-t]"),o=e.target.closest("[data-out]");
+  try{
+    if(r){setAcc(await api.authSelect(r.dataset.t));SK.picked=false;persist()}
+    else if(o){setAcc(await api.authLogout(o.dataset.out));SK.picked=false;snack("Вы вышли из аккаунта");accRender()}
+  }catch(er){snack(errText(er))}
 };
-$("#cancel").onclick=$("#accClose").onclick=()=>{api.authCancel();dlg.classList.remove("on")};
-$("#ok").onclick=()=>{const n=$("#nin").value.trim()||"Steve";$("#nick").textContent=n;$("#av").textContent=n[0].toUpperCase();dlg.classList.remove("on");persist();snack(tr("Ник сохранён: ")+n)};
+$("#accAdd").onclick=e=>{
+  const b=e.target.closest("[data-add]");if(!b)return;
+  if(b.dataset.add==="ms")msLogin();else{$("#elyBox").style.display="";$("#elyTW").style.display="none";$("#elyState").textContent="";$("#elyU").focus()}
+};
+$("#ok").onclick=()=>{OFFN=$("#nin").value.trim()||"Steve";chip();persist();snack(tr("Ник сохранён: ")+OFFN);accRender()};
 api.on("authcode",c=>{$("#msCode").textContent=c.code});
-$("#ms").onclick=async()=>{
-  $("#ms").disabled=true;$("#msBox").style.display="";$("#msCode").textContent="…";$("#msState").textContent=tr("Ожидание входа…");
-  try{const a=await api.authLogin();setAcc(a);dlg.classList.remove("on");snack(tr("Вы вошли как ")+a.name);SK.picked=false}
+async function msLogin(){
+  $("#msBox").style.display="";$("#msCode").textContent="…";$("#msState").textContent=tr("Ожидание входа…");
+  try{const a=await api.authLogin();setAcc(a);SK.picked=false;snack(tr("Вы вошли как ")+a.name);$("#msBox").style.display="none";accRender()}
   catch(e){const t=tr(errText(e));$("#msState").textContent=t;log(t)}
-  finally{$("#ms").disabled=false}
+}
+$("#elyGo").onclick=async()=>{
+  $("#elyGo").disabled=true;$("#elyState").textContent=tr("Проверка…");
+  try{
+    const a=await api.elyLogin({username:$("#elyU").value.trim(),password:$("#elyP").value,totp:$("#elyT").value.trim()});
+    setAcc(a);SK.picked=false;$("#elyP").value="";$("#elyT").value="";$("#elyBox").style.display="none";snack(tr("Вы вошли как ")+a.name);accRender();
+  }catch(e){const m=errText(e);if(m==="Нужен код двухфакторной защиты Ely.by")$("#elyTW").style.display="";$("#elyState").textContent=tr(m)}
+  finally{$("#elyGo").disabled=false}
 };
-$("#accLogout").onclick=async()=>{await api.authLogout();ACC=null;SK={url:null,slim:false,picked:false};dlg.classList.remove("on");snack("Вы вышли из аккаунта")};
 dlg.onclick=e=>{if(e.target===dlg){api.authCancel();dlg.classList.remove("on")}};
 document.onkeydown=e=>{if(e.key==="Escape"){api.authCancel();dlg.classList.remove("on")}};
 $("#impP").onclick=async()=>{
@@ -674,7 +730,7 @@ function updPresence(){
   api.presence({details:tr(t?"Готовится к запуску":"Играет")+": "+pl.n,state:`${pl.v} · ${pl.l}`,start:t?undefined:(PS[pl.id]||=Date.now())});
 }
 $("#rpcOn").onchange=()=>{persist();updPresence()};
-api.on("impprog",o=>{$("#impStat").textContent=tr("Импорт")+": "+o.done+" / "+o.total});
+api.on("impprog",o=>{const t=tr("Импорт")+": "+o.done+" / "+o.total;$("#impStat").textContent=t;$("#bStat").textContent=t});
 function autoLaunch(pid){
   const i=profiles.findIndex(p=>p.id===pid);if(i<0||RUN.has(pid)||running)return;
   cur=i;persist();renderProfiles();renderHome();show("home");setTimeout(()=>$("#play").click(),300);
@@ -704,21 +760,21 @@ function openCatalog(pid,kind){B.kind=kind||"mods";B.pref=pid;show("browse")}
 function browseShow(){
   const sel=$("#bTarget"),keep=B.pref||sel.value||profiles[cur]?.id;B.pref=null;
   sel.innerHTML=profiles.map(p=>`<option value="${esc(p.id)}">${esc(p.n)}</option>`).join("");if(keep)sel.value=keep;
-  $$("#bKind button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.k===B.kind));
-  if(!profiles.length){$("#bRes").innerHTML=`<p class="sub">${tr("Сначала создайте сборку")}</p>`;return}
+  $$("#bKind button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.k===B.kind));bKindUi();
+  if(!profiles.length&&B.kind!=="modpacks"){$("#bRes").innerHTML=`<p class="sub">${tr("Сначала создайте сборку")}</p>`;return}
   B.cats.clear();loadCats();bSearch(true);bInstalled();
 }
 async function loadCats(){
   let L=[];try{L=await api.mrCategories(B.kind)}catch(e){}
   $("#bCats").innerHTML=L.map(c=>`<button data-c="${esc(c)}" aria-pressed="${B.cats.has(c)}">${esc(c.replace(/-/g," "))}</button>`).join("");
 }
-const bBtn=id=>B.inst.has(id)?`<button class="btn t" disabled>✓ ${tr("Установлено")}</button>`:`<button class="btn" data-i="${esc(id)}">${tr("Установить")}</button>`;
+const bBtn=id=>B.inst.has(id)?`<button class="btn t" disabled>✓ ${tr("Установлено")}</button>`:`<button class="btn" data-i="${esc(id)}">${tr(B.kind==="modpacks"?"Установить сборку":"Установить")}</button>`;
 const bCard=h=>`<div class="bcard" data-id="${esc(h.id)}"><div class="top">${h.icon?`<img src="${esc(h.icon)}" alt="" loading="lazy">`:`<div class="ph">${esc(h.title[0])}</div>`}<div style="min-width:0"><strong>${esc(h.title)}</strong><div class="sub" style="font-size:13px">${esc(h.author)}</div></div></div><div class="d">${esc(h.desc)}</div><div class="m"><span>⬇ ${fmtNum(h.dl)}</span><span class="bb">${bBtn(h.id)}</span></div></div>`;
 async function bSearch(reset){
-  const p=bProf();if(!p)return;const t=++B.t;
+  const p=bProf();if(!p&&B.kind!=="modpacks")return;const t=++B.t;
   if(reset){B.offset=0;$("#bRes").innerHTML=`<p class="sub">${tr("Загрузка…")}</p>`;$("#bMore").style.display="none"}
   try{
-    const r=await api.mrSearch({kind:B.kind,q:$("#bq").value,mc:p.v,loader:p.l,sort:$("#bSort").value,cats:[...B.cats],offset:B.offset,compat:$("#bCompat").checked});
+    const r=await api.mrSearch({kind:B.kind,q:$("#bq").value,mc:p?.v,loader:p?.l,sort:$("#bSort").value,cats:[...B.cats],offset:B.offset,compat:B.kind!=="modpacks"&&$("#bCompat").checked});
     if(t!==B.t)return;
     const html=r.hits.map(bCard).join("");
     if(reset)$("#bRes").innerHTML=html||`<p class="sub">${tr("Ничего не найдено")}</p>`;else $("#bRes").insertAdjacentHTML("beforeend",html);
@@ -726,7 +782,7 @@ async function bSearch(reset){
   }catch(e){if(t===B.t)$("#bRes").innerHTML=`<p class="sub">${esc(tr(errText(e)))}</p>`}
 }
 async function bInstalled(){
-  const p=bProf();if(!p)return;B.inst=new Set();
+  const p=bProf();B.inst=new Set();if(!p||B.kind==="modpacks")return;
   try{B.inst=new Set((await api.mrIdentify(p.id,B.kind,p.v,p.l)).map(x=>x.project))}catch(e){}
   $$("#bRes .bcard").forEach(c=>{c.querySelector(".bb").innerHTML=bBtn(c.dataset.id)});
 }
@@ -749,6 +805,7 @@ async function bPlan(id,versionId){
 }
 $("#ldlg").onclick=e=>{const t=e.target;if(!LRES||!["lOk","lNo","ldlg"].includes(t.id))return;const f=LRES;LRES=null;$("#ldlg").classList.remove("on");f(t.id==="lOk")};
 async function bInstall(id,versionId,btn){
+  if(B.kind==="modpacks")return bModpack(id,versionId,btn);
   const p=bProf();if(btn)btn.disabled=true;
   try{
     if(!await bPlan(id,versionId)){if(btn)btn.disabled=false;return false}
@@ -757,10 +814,22 @@ async function bInstall(id,versionId,btn){
     $$("#bRes .bcard").forEach(c=>{if(c.dataset.id===id)c.querySelector(".bb").innerHTML=bBtn(id)});bInstalled();return true;
   }catch(e){snack(errText(e));if(btn)btn.disabled=false;return false}
 }
+const bKindUi=()=>{const m=B.kind==="modpacks";$("#bTargetW").style.display=m?"none":"";$("#bCompatW").style.display=m?"none":""};
+async function bModpack(id,versionId,btn){
+  if(btn)btn.disabled=true;const pid="p"+Date.now().toString(36);
+  try{
+    snack("Установка…");
+    const m=await api.mrModpack({projectId:id,versionId,pid});
+    profiles.push({id:pid,n:String(m.n||"").slice(0,60)||tr("Новая сборка"),v:String(m.v),l:LOADERS.includes(m.l)?m.l:"Vanilla",lv:String(m.lv||""),img:/^data:image\/png;base64,[A-Za-z0-9+\/=]{1,300000}$/.test(m.img||"")?m.img:undefined});
+    cur=profiles.length-1;persist();renderProfiles();renderHome();
+    snack(m.failed&&m.failed.length?tr("Не удалось скачать файлов: ")+m.failed.length:"Сборка создана");return true;
+  }catch(e){snack(errText(e));return false}
+  finally{if(btn)btn.disabled=false;$("#bStat").textContent=""}
+}
 async function openProject(id){
   const p=bProf(),d=$("#pdlg"),b=$("#pBody");b.innerHTML=`<p class="sub">${tr("Загрузка…")}</p>`;d.classList.add("on");
   try{
-    const r=await api.mrProject({id,kind:B.kind,mc:p.v,loader:p.l,compat:$("#bCompat").checked}),has=B.inst.has(r.id);
+    const r=await api.mrProject({id,kind:B.kind,mc:p?.v,loader:p?.l,compat:B.kind!=="modpacks"&&$("#bCompat").checked}),has=B.inst.has(r.id);
     b.innerHTML=`<div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">${r.icon?`<img src="${esc(r.icon)}" width="64" height="64" alt="" style="border-radius:14px">`:""}<div><h2 style="margin:0">${esc(r.title)}</h2><div class="sub" style="font-size:13px">⬇ ${fmtNum(r.dl)} · ♥ ${fmtNum(r.follows)}</div></div></div>
 <p style="margin-bottom:12px">${esc(r.desc)}</p>
 <div class="field"><label>${tr("Версия")}</label><select id="pVer">${r.versions.length?r.versions.map(v=>`<option value="${esc(v.id)}">${esc(v.name)} · ${esc(v.type)} · ${esc(String(v.date).slice(0,10))} · ${esc((v.gv||[]).join(", "))}</option>`).join(""):`<option value="">${tr("Нет подходящих версий")}</option>`}</select></div>
@@ -770,7 +839,7 @@ async function openProject(id){
 $("#bq").oninput=()=>{clearTimeout(bT);bT=setTimeout(()=>bSearch(true),350)};
 $("#bSort").onchange=$("#bCompat").onchange=()=>bSearch(true);
 $("#bTarget").onchange=()=>{bSearch(true);bInstalled()};
-$("#bKind").onclick=e=>{const b=e.target.closest("button");if(!b)return;B.kind=b.dataset.k;B.cats.clear();$$("#bKind button").forEach(x=>x.setAttribute("aria-pressed",x===b));loadCats();bSearch(true);bInstalled()};
+$("#bKind").onclick=e=>{const b=e.target.closest("button");if(!b)return;B.kind=b.dataset.k;B.cats.clear();bKindUi();$$("#bKind button").forEach(x=>x.setAttribute("aria-pressed",x===b));loadCats();bSearch(true);bInstalled()};
 $("#bCats").onclick=e=>{const b=e.target.closest("button");if(!b)return;const c=b.dataset.c;B.cats.has(c)?B.cats.delete(c):B.cats.add(c);b.setAttribute("aria-pressed",B.cats.has(c));bSearch(true)};
 $("#bMore").onclick=()=>bSearch(false);
 $("#bRes").onclick=e=>{
@@ -812,6 +881,7 @@ function mcBox(w,h,d,u,v,e,img){
   face(u,v+d,d,h,`rotateY(-90deg) translateZ(${X}px)`);
   face(u+d+w,v+d,d,h,`rotateY(90deg) translateZ(${X}px)`);
   face(u+d,v,w,d,`rotateX(90deg) translateZ(${Y}px)`);
+  face(u+d+w,v,w,d,`rotateX(-90deg) translateZ(${Y}px)`);
   return g}
 function mcModel(img,slim,legacy,cape){
   TEXH=legacy?32:64;
@@ -824,10 +894,34 @@ function mcModel(img,slim,legacy,cape){
     const b=mcBox(w,h,d,uu,vv,e,img);b.style.transform=`translate3d(${x*SC}px,${(y-16)*SC}px,0)`;root.append(b)}
   if(cape){TEXH=32;const c=mcBox(10,16,1,0,0,0,cape);c.style.transform=`translate3d(0,0,${-2.5*SC}px) rotateY(180deg)`;root.append(c)}
   return root}
-function buildSkin(){
+// Как в игре: базовые слои (голова, тело, руки, ноги) всегда непрозрачны, прозрачность остаётся только у внешнего слоя
+const SKC=new Map();
+function prepSkin(url){
+  if(SKC.has(url))return SKC.get(url);
+  const pr=(async()=>{
+    const src=url.startsWith("data:")?url:await api.imgFetch(url);
+    return await new Promise((res,rej)=>{
+      const im=new Image();
+      im.onload=()=>{
+        const w=im.naturalWidth,h=im.naturalHeight,k=w/64,legacy=h*2===w,c=document.createElement("canvas");
+        c.width=w;c.height=h;const x=c.getContext("2d");x.drawImage(im,0,0);
+        const opaque=(sx,sy,sw,sh)=>{const X=Math.round(sx*k),Y=Math.round(sy*k),W=Math.round(sw*k),H=Math.round(sh*k);const d=x.getImageData(X,Y,W,H);for(let i=3;i<d.data.length;i+=4)d.data[i]=255;x.putImageData(d,X,Y)};
+        opaque(0,0,32,16);opaque(0,16,64,16);if(!legacy)opaque(16,48,32,16);
+        res({url:c.toDataURL("image/png"),legacy});
+      };
+      im.onerror=()=>rej(new Error("img"));im.src=src;
+    });
+  })();
+  if(SKC.size>12)SKC.clear();
+  SKC.set(url,pr);pr.catch(()=>SKC.delete(url));return pr;
+}
+let skTok=0;
+async function buildSkin(){
   const st=$("#stage");
   if(!SK.url){st.innerHTML=`<p class="sub" style="text-align:center;padding-top:140px">${tr("Выберите файл скина или войдите через Microsoft")}</p>`;return}
-  const im=new Image();im.onload=()=>{st.innerHTML="";st.append(mcModel(SK.url,SK.slim,im.naturalHeight===32,SK.capeUrl))};im.src=SK.url;
+  const t=++skTok;
+  try{const r=await prepSkin(SK.url);if(t!==skTok)return;st.innerHTML="";st.append(mcModel(r.url,SK.slim,r.legacy,SK.capeUrl))}
+  catch(e){if(t===skTok)st.innerHTML=`<p class="sub" style="text-align:center;padding-top:140px">${tr("Не удалось загрузить скин")}</p>`}
 }
 function skinShow(){
   if(ACC&&!SK.picked){const s=ACC.skin;SK.url=s?s.url.replace("http://","https://"):null;SK.slim=s?.variant==="SLIM"}
@@ -846,13 +940,15 @@ $("#skinApply").onclick=async()=>{try{ACC=await api.skinApply(SK.slim?"slim":"cl
 const capeUrlOf=id=>((ACC?.capes||[]).find(c=>c.id===id)?.url||"").replace("http://","https://")||null;
 function renderCapes(){
   const box=$("#capes");
+  const ms=ACC&&ACC.type==="ms";$("#capeApply").style.display=ms?"":"none";
   if(!ACC){box.innerHTML=`<p class="sub">${tr("Войдите через Microsoft, чтобы увидеть плащи")}</p>`;return}
+  if(!ms){box.innerHTML=`<p class="sub">${tr("Плащи доступны только для аккаунта Microsoft")}</p>`;return}
   const th=u=>`<div class="cth" style="background:url('${esc(u.replace("http://","https://"))}') -3px -3px/192px 96px no-repeat"></div>`;
   box.innerHTML=`<button class="cp" data-id="" aria-pressed="${!SK.capeId}"><div class="cth"></div><small>${tr("Без плаща")}</small></button>`+
     (ACC.capes||[]).map(c=>`<button class="cp" data-id="${esc(c.id)}" aria-pressed="${c.id===SK.capeId}">${th(c.url)}<small>${esc(c.alias||"")}</small></button>`).join("");
 }
 $("#capes").onclick=e=>{const b=e.target.closest("button");if(!b)return;SK.capeId=b.dataset.id;SK.capeTouched=true;SK.capeUrl=capeUrlOf(SK.capeId);renderCapes();buildSkin()};
-$("#capeApply").onclick=async()=>{try{ACC=await api.capeSet(SK.capeId||null);SK.capeTouched=false;snack("Плащ изменён");skinShow()}catch(e){snack(errText(e))}};
+$("#capeApply").onclick=async()=>{if(!ACC||ACC.type!=="ms"){snack("Плащи доступны только для аккаунта Microsoft");return}try{ACC=await api.capeSet(SK.capeId||null);SK.capeTouched=false;snack("Плащ изменён");skinShow()}catch(e){snack(errText(e))}};
 async function loadHist(){
   let H=[];try{H=await api.skinHist()}catch(e){}
   const box=$("#hist");box.innerHTML=H.length?"":`<p class="sub">${tr("Здесь пока пусто")}</p>`;
@@ -881,7 +977,7 @@ $("#hist").onclick=async e=>{
   setLang("auto",true);splashMsg("Загрузка настроек…");
   const c=await api.getConfig();
   setLang(c.lang||"auto",true);
-  if(c.profiles){profiles=c.profiles;cur=c.cur||0;$("#nick").textContent=c.nick;$("#av").textContent=c.nick[0].toUpperCase();
+  if(c.profiles){profiles=c.profiles;cur=c.cur||0;OFFN=c.nick||"Steve";chip();
     $("#ram").value=c.v>=2?c.ram:Math.round(c.ram*1024);$("#jvm").value=c.jvm}
   updMem();ensureIds();
   try{const a=await api.authState();if(a)setAcc(a)}catch(e){}
