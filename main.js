@@ -725,6 +725,14 @@ ipcMain.handle('inst:delete', (_, pid, files) => {
   if (files) fs.rmSync(inst(pid), { recursive: true, force: true });
 });
 
+ipcMain.handle('inst:counts', (_, pid) => {
+  const cnt = (k, f) => { try { return fs.readdirSync(kdir(pid, k), { withFileTypes: true }).filter(f).length; } catch { return 0; } };
+  const file = re => e => e.isFile() && re.test(e.name);
+  let servers = 0; try { servers = srvView(srvLoad(pid)).length; } catch {}
+  return { mods: cnt('mods', file(/\.jar(\.disabled)?$/i)), resourcepacks: cnt('resourcepacks', e => e.isDirectory() || /\.zip$/i.test(e.name)),
+    shaderpacks: cnt('shaderpacks', e => e.isDirectory() || /\.zip$/i.test(e.name)), worlds: cnt('worlds', e => e.isDirectory()), servers, screenshots: cnt('screenshots', file(/\.(png|jpe?g)$/i)) };
+});
+
 /* ---------- servers.dat (несжатый NBT) ---------- */
 function nbtRead(buf) {
   let o = 0;

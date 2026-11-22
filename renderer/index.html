@@ -186,6 +186,42 @@ div.prof{cursor:pointer}
 .field input[type=password]:focus{border-color:var(--primary);outline:none}
 .arow{display:flex;align-items:center;gap:10px;padding:8px 4px}
 .arow .grow{flex:1;min-width:0}.arow input[type=radio]{accent-color:var(--primary);width:18px;height:18px}
+/* — состояния Material 3: наведение, нажатие, волна — */
+.btn,.play,.seg button,.lgs button,.acct,.rc,.nb .pill{position:relative;overflow:hidden}
+.btn::after,.play::after,.seg button::after,.lgs button::after,.acct::after,.rc::after{content:"";position:absolute;inset:0;background:currentColor;opacity:0;transition:opacity .15s;pointer-events:none}
+.btn:hover::after,.play:hover::after,.seg button:hover::after,.lgs button:hover::after,.acct:hover::after,.rc:hover::after{opacity:.08}
+.btn:active::after,.play:active::after,.seg button:active::after,.lgs button:active::after,.acct:active::after,.rc:active::after{opacity:.12}
+.btn[disabled]::after{display:none}
+.rip{position:absolute;border-radius:50%;background:currentColor;opacity:.18;transform:scale(0);animation:ripple .55s ease-out forwards;pointer-events:none}
+@keyframes ripple{to{transform:scale(1);opacity:0}}
+.play{transition:background .25s,border-radius .3s,box-shadow .15s,transform .15s}
+.play.stop{border-radius:36px}
+.play svg path{d:path("M8 5L8 19L19 12L19 12Z");transition:d .3s ease}
+.play.stop svg path{d:path("M7 7L7 17L17 17L17 7Z")}
+/* — главная как «пульт» — */
+.hero{position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:-20px;background:var(--hero-img,none) center/cover;filter:blur(22px);opacity:.35;pointer-events:none}
+.hero>*{position:relative}
+.hl{display:flex;align-items:center;gap:16px;min-width:0}
+.hpic{width:72px;height:72px;border-radius:20px;background:var(--primary);color:var(--on-primary);display:grid;place-items:center;overflow:hidden;flex:none}
+.hpic img{width:100%;height:100%;object-fit:cover}.hpic svg{width:36px;height:36px;fill:currentColor}
+.hstat{margin-top:10px;font-size:14px;opacity:.85}
+#recentWrap{margin-top:20px}#recentWrap h2{font-size:16px}
+.recent{display:flex;gap:12px;overflow-x:auto;padding-bottom:6px}
+.rc{flex:none;width:220px;display:flex;align-items:center;gap:12px;background:var(--sc);border:0;border-radius:16px;padding:12px;cursor:pointer;color:inherit;text-align:left}
+.rc:hover{background:var(--sc-high)}.rc[aria-pressed="true"]{background:var(--secondary-c);color:var(--on-secondary-c)}
+.rc .grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rc small{display:block;opacity:.75}
+/* — плитки, закрепление, счётчики — */
+.pa{display:flex;gap:4px;flex:none}
+.btn.ic{padding:8px;min-width:0}.btn.ic svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2}.btn.ic.on svg{fill:currentColor}
+#plist.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+.prof.tile{flex-direction:column;align-items:center;text-align:center;padding:16px;gap:10px;background:var(--sc);border-radius:20px}
+.prof.tile[aria-pressed="true"]{background:var(--secondary-c)}
+.prof.tile .pic{width:88px;height:88px;border-radius:22px}.prof.tile .pic svg{width:40px;height:40px}
+.prof.tile .grow{width:100%}.prof.tile .pa{flex-wrap:wrap;justify-content:center}
+.cnt{margin-left:6px;font-size:12px;background:var(--sc-highest);border-radius:10px;padding:1px 7px}
+.lgs button[aria-pressed="true"] .cnt{background:rgba(255,255,255,.35)}
+.dot{width:8px;height:8px;border-radius:50%;background:#B3261E;display:inline-block;margin-left:6px}
 </style>
 </head>
 <body>
@@ -214,12 +250,10 @@ div.prof{cursor:pointer}
   <div class="card" id="updBanner" style="display:none;margin-bottom:16px"><div class="row"><span id="bannerTxt"></span><button class="btn" id="bannerBtn"></button></div></div>
   <section class="view on" id="v-home">
     <div class="hero">
-      <div>
-        <div class="name" id="hName">Выживание 1.21.4</div>
-        <div class="meta" id="hMeta"></div>
-      </div>
+      <div class="hl"><div class="hpic" id="hPic"></div><div style="min-width:0"><div class="name" id="hName"></div><div class="meta" id="hMeta"></div><div class="hstat" id="hStat"></div></div></div>
       <button class="play" id="play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><span id="playTxt">Играть</span></button>
     </div>
+    <div id="recentWrap" style="display:none"><h2>Недавние сборки</h2><div class="recent" id="recent"></div></div>
     <div class="progress" id="prog">
       <div class="bar"><i id="barI"></i></div>
       <div class="plabel"><span id="pStage">Подготовка…</span><span id="pPct">0%</span></div>
@@ -231,6 +265,7 @@ div.prof{cursor:pointer}
   <section class="view" id="v-profiles">
     <div class="card">
       <div class="row" style="margin-bottom:8px"><h2 style="margin:0">Ваши сборки</h2><span style="display:flex;gap:8px"><button class="btn t" id="impP">Импорт</button><button class="btn" id="addP">Создать</button></span></div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:12px"><div class="field" style="margin:0;flex:1;min-width:160px"><input type="text" id="pq" placeholder="Поиск" aria-label="Поиск"></div><div class="seg" id="pview"><button data-m="list" aria-pressed="true">Список</button><button data-m="grid" aria-pressed="false">Плитки</button></div></div>
       <p class="sub" id="impStat"></p>
       <div id="plist"></div>
     </div>
@@ -301,6 +336,9 @@ div.prof{cursor:pointer}
         <div class="seg" id="theme" role="group" aria-label="Тема">
           <button data-t="auto" aria-pressed="true">Системная</button><button data-t="light" aria-pressed="false">Светлая</button><button data-t="dark" aria-pressed="false">Тёмная</button>
         </div>
+        <h2 style="margin-top:16px">Акцентный цвет</h2>
+        <div class="lgs" id="accents"></div>
+        <label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="amoled" style="accent-color:var(--primary)"><span>Чёрный фон (AMOLED)</span></label>
       </div>
     </div>
   </section>
@@ -378,7 +416,9 @@ const I18N={
 "По имени":["By name","За назвою"],"По дате":["By date","За датою"],"По размеру":["By size","За розміром"],"Выбрано":["Selected","Вибрано"],"Включить":["Enable","Увімкнути"],"Выключить":["Disable","Вимкнути"],
 "Снять выделение":["Clear selection","Зняти виділення"],"Выбрать все":["Select all","Вибрати всі"],"Обновить":["Update","Оновити"],"Отпустите, чтобы добавить в":["Drop to add to","Відпустіть, щоб додати до"],
 "Копировать":["Copy","Копіювати"],"Открыть в программе":["Open in viewer","Відкрити в програмі"],"Скопировано":["Copied","Скопійовано"],"Назад":["Back","Назад"],"Вперёд":["Next","Далі"],
-"Плащ":["Cape","Плащ"],"Не удалось загрузить скин":["Couldn’t load the skin","Не вдалося завантажити скін"],
+"Плащ":["Cape","Плащ"],"Недавние сборки":["Recent profiles","Нещодавні збірки"],"Последний запуск":["Last launch","Останній запуск"],"Время в игре":["Play time","Час у грі"],"никогда":["never","ніколи"],
+"ч":["h","год"],"мин":["min","хв"],"Список":["List","Список"],"Плитки":["Tiles","Плитки"],"Закрепить":["Pin","Закріпити"],"Есть обновления":["Updates available","Є оновлення"],
+"Картинка сборки":["Profile image","Картинка збірки"],"Выбрать картинку…":["Choose image…","Обрати картинку…"],"Акцентный цвет":["Accent color","Акцентний колір"],"Чёрный фон (AMOLED)":["Black background (AMOLED)","Чорний фон (AMOLED)"],"Не удалось загрузить скин":["Couldn’t load the skin","Не вдалося завантажити скін"],
 "Плащи доступны только для аккаунта Microsoft":["Capes are only available for Microsoft accounts","Плащі доступні лише для акаунта Microsoft"],
 "Ely.by не принял скин напрямую: открыта страница Ely.by, загрузите файл там":["Ely.by didn’t accept the skin directly: the Ely.by page is open, upload the file there","Ely.by не прийняв скін напряму: відкрито сторінку Ely.by, завантажте файл там"],"Аккаунты":["Accounts","Акаунти"],"Офлайн":["Offline","Офлайн"],"Войти через Ely.by":["Sign in with Ely.by","Увійти через Ely.by"],
 "Логин или e-mail Ely.by":["Ely.by username or e-mail","Логін або e-mail Ely.by"],"Пароль":["Password","Пароль"],"Код двухфакторной защиты":["Two-factor code","Код двофакторного захисту"],"Войти":["Sign in","Увійти"],
@@ -490,11 +530,27 @@ function show(v){curView=v;if(v==="skins")setTimeout(skinShow);if(v==="browse")s
 }
 $$(".nb").forEach(b=>b.onclick=()=>show(b.dataset.v));
 
-function renderHome(){queueMicrotask(updPlay);
+const fmtDur=ms=>{const m=Math.floor(ms/60000),h=Math.floor(m/60);return h?`${h} ${tr("ч")} ${m%60} ${tr("мин")}`:`${m} ${tr("мин")}`};
+function relTime(ts){
+  const f=new Intl.RelativeTimeFormat(LANG==="ru"?"ru":LANG==="uk"?"uk":"en",{numeric:"auto"}),d=(Date.now()-ts)/1000;
+  return d<60?f.format(0,"second"):d<3600?f.format(-Math.round(d/60),"minute"):d<86400?f.format(-Math.round(d/3600),"hour"):f.format(-Math.round(d/86400),"day");
+}
+function renderRecent(){
+  $("#recentWrap").style.display=profiles.length>1?"":"none";
+  const L=profiles.map((p,i)=>({p,i})).sort((a,b)=>(b.p.last||0)-(a.p.last||0)).slice(0,8);
+  $("#recent").innerHTML=L.map(({p,i})=>`<button class="rc" data-i="${i}" aria-pressed="${i===cur}"><span class="pic"${p.col&&!p.img?` style="background:${p.col};color:#fff"`:""}>${p.img?`<img src="${esc(p.img)}" alt="">`:icon(p.l)}</span><span class="grow"><strong>${esc(p.n)}</strong><small>${p.v} · ${p.l}${RUN.has(p.id)?" · "+tr("Запущено"):""}</small></span></button>`).join("");
+}
+function renderHome(){
+  queueMicrotask(updPlay);
   const p=profiles[cur];
-  if(!p){$("#hName").textContent=tr("Сборок пока нет");$("#hMeta").innerHTML="";return}
+  $(".hero").style.setProperty("--hero-img",p&&p.img?`url("${p.img}")`:"none");
+  if(!p){$("#hName").textContent=tr("Сборок пока нет");$("#hMeta").innerHTML="";$("#hStat").textContent="";$("#hPic").innerHTML="";$("#recentWrap").style.display="none";return}
   $("#hName").textContent=p.n;
-  $("#hMeta").innerHTML=`<span class="chip">${p.v}</span><span class="chip">${icon(p.l)}${p.l}</span><span class="chip">${fmtMem(+$("#ram").value||0)}</span>`;
+  $("#hPic").innerHTML=p.img?`<img src="${esc(p.img)}" alt="">`:icon(p.l);
+  $("#hPic").style.background=p.col&&!p.img?p.col:"";
+  $("#hMeta").innerHTML=`<span class="chip">${p.v}</span><span class="chip">${icon(p.l)}${p.l}${p.lv?" "+esc(p.lv):""}</span><span class="chip">${fmtMem(+(p.ram||$("#ram").value)||0)}</span>`;
+  $("#hStat").textContent=tr("Последний запуск")+": "+(p.last?relTime(p.last):tr("никогда"))+" · "+tr("Время в игре")+": "+fmtDur(p.played||0);
+  renderRecent();
 }
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const slug=s=>(s||"").replace(/[^\w.-]+/g,"_")||"p";
@@ -502,12 +558,19 @@ function ensureIds(){const u=new Set();profiles.forEach(p=>{let id=p.id||slug(p.
 let RUN=new Set(),editTab="ver";
 const errText=e=>String(e.message).replace(/^Error invoking remote method '[^']*': (Error: )?/,"");
 function updPlay(){updPresence();if(running)return;const e=!profiles.length,r=RUN.has(profiles[cur]?.id);$("#play").disabled=false;$("#play").classList.toggle("stop",r);$("#playTxt").textContent=tr(e?"Создать сборку":r?"Остановить":"Играть")}
+let PV="list",PQ="";
 function renderProfiles(){
-  $("#plist").innerHTML=profiles.map((p,i)=>`<div class="prof" data-i="${i}" aria-pressed="${i===cur}"><span class="pic"${p.col?` style="background:${p.col};color:#fff"`:""}>${p.img?`<img src="${esc(p.img)}" alt="">`:p.em||icon(p.l)}</span><span class="grow"><strong>${esc(p.n)}</strong><small>${p.v} · ${p.l}${RUN.has(p.id)?" · "+tr("Запущено"):""}</small></span><button class="btn t" data-a="edit">${tr("Изменить")}</button><button class="btn t" data-a="del">${tr("Удалить")}</button></div>`).join("")||`<p class="sub">${tr("Здесь пока пусто")}</p>`;
+  const q=PQ.toLowerCase();
+  const L=profiles.map((p,i)=>({p,i})).filter(x=>!q||x.p.n.toLowerCase().includes(q)).sort((a,b)=>!!b.p.pin-!!a.p.pin);
+  $("#plist").innerHTML=L.map(({p,i})=>`<div class="prof${PV==="grid"?" tile":""}" data-i="${i}" aria-pressed="${i===cur}"><span class="pic"${p.col&&!p.img?` style="background:${p.col};color:#fff"`:""}>${p.img?`<img src="${esc(p.img)}" alt="">`:icon(p.l)}</span><span class="grow"><strong>${esc(p.n)}</strong><small>${p.v} · ${p.l}${RUN.has(p.id)?" · "+tr("Запущено"):""}</small></span><span class="pa"><button class="btn t ic${p.pin?" on":""}" data-a="pin" title="${tr("Закрепить")}" aria-label="${tr("Закрепить")}"><svg viewBox="0 0 24 24"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg></button><button class="btn t" data-a="edit">${tr("Изменить")}</button><button class="btn t" data-a="del">${tr("Удалить")}</button></span></div>`).join("")||`<p class="sub">${tr("Здесь пока пусто")}</p>`;
 }
+function applyPV(){$("#plist").classList.toggle("grid",PV==="grid");$$("#pview button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.m===PV))}
+$("#pview").onclick=e=>{const b=e.target.closest("button");if(!b)return;PV=b.dataset.m;applyPV();renderProfiles();persist()};
+$("#pq").oninput=e=>{PQ=e.target.value;renderProfiles()};
 $("#plist").onclick=e=>{
   const row=e.target.closest(".prof");if(!row)return;
   const i=+row.dataset.i,a=e.target.closest("button")?.dataset.a;
+  if(a==="pin"){profiles[i].pin=!profiles[i].pin;persist();renderProfiles();return}
   cur=i;
   if(a==="del"){delProfile(i);return}
   persist();renderProfiles();renderHome();
@@ -532,12 +595,22 @@ $("#editBack").onclick=()=>show("profiles");
 
 const TABS=[["ver","Версия / Загрузчик"],["settings","Настройки"],["mods","Моды"],["resourcepacks","Наборы ресурсов"],["shaderpacks","Наборы шейдеров"],["worlds","Миры"],["servers","Серверы"],["screenshots","Скриншоты"]];
 function openEdit(t){editTab=t||"ver";show("edit");renderEdit()}
-function renderEdit(){
-  $("#editName").textContent=profiles[cur].n;
-  $("#tabs").innerHTML=TABS.map(([k,l])=>`<button data-k="${k}" aria-pressed="${k===editTab}">${tr(l)}</button>`).join("");
-  renderTab();
+let CNT={},UPDN=0,CNTP=null;
+function renderTabsBar(){
+  $("#tabs").innerHTML=TABS.map(([k,l])=>`<button data-k="${k}" aria-pressed="${k===editTab}">${tr(l)}${CNT[k]!=null&&k!=="ver"&&k!=="settings"?`<span class="cnt">${CNT[k]}</span>`:""}${k==="mods"&&UPDN>0?`<i class="dot" title="${tr("Есть обновления")}"></i>`:""}</button>`).join("");
 }
-$("#tabs").onclick=e=>{const b=e.target.closest("button");if(b){editTab=b.dataset.k;renderEdit()}};
+async function loadCounts(){
+  const p=profiles[cur];if(!p)return;
+  try{CNT=await api.instCounts(p.id)}catch(e){CNT={}}
+  if(curView==="edit")renderTabsBar();
+}
+function renderEdit(){
+  const p=profiles[cur];$("#editName").textContent=p.n;
+  if(CNTP!==p.id){CNT={};UPDN=0;CNTP=p.id}
+  renderTabsBar();renderTab();loadCounts();
+  api.mrIdentify(p.id,"mods",p.v,p.l).then(m=>{if(profiles[cur]===p){UPDN=m.filter(x=>x.update).length;renderTabsBar()}}).catch(()=>{});
+}
+$("#tabs").onclick=e=>{const b=e.target.closest("button");if(b){editTab=b.dataset.k;renderTabsBar();renderTab()}};
 function fillForm(){if(curView==="edit")renderEdit()}
 function setP(patch){if(("v"in patch||"l"in patch)&&!("lv"in patch))patch.lv="";Object.assign(profiles[cur],patch);persist();renderProfiles();renderHome();$("#editName").textContent=profiles[cur].n}
 const fmtSize=n=>n==null?"":n>1048576?(n/1048576).toFixed(1)+" "+tr("МБ"):Math.ceil(n/1024)+" "+tr("КБ");
@@ -547,7 +620,7 @@ async function renderTab(){
     const vs=versions.includes(p.v)?versions:[p.v,...versions];
     body.innerHTML=`<div class="field"><label>${tr("Название")}</label><input type="text" id="pn" value="${esc(p.n)}"></div><div class="field"><label>${tr("Версия Minecraft")}</label><select id="pv">${vs.map(v=>`<option${v===p.v?" selected":""}>${v}</option>`).join("")}</select></div><div class="field"><label>${tr("Загрузчик")}</label><div class="lgs" id="loader" role="group"></div></div><div class="field"><label>${tr("Версия загрузчика")}</label><select id="plv"></select></div>
 <div class="field"><label>${tr("Цвет")}</label><div class="lgs">${COLORS.map(c=>`<button class="sw" data-act="col" data-v="${c}" style="background:${c}" aria-pressed="${c===p.col}" aria-label="${c}"></button>`).join("")}<button data-act="col" data-v="">${tr("Сбросить")}</button></div></div>
-<div class="field"><label>${tr("Значок")}</label><div class="lgs">${EMOJI.map(m=>`<button data-act="em" data-v="${m}" aria-pressed="${m===p.em}">${m}</button>`).join("")}<button data-act="img">${tr("Своя картинка…")}</button><button data-act="em" data-v="">${tr("Сбросить")}</button></div></div>
+<div class="field"><label>${tr("Картинка сборки")}</label><div class="lgs">${p.img?`<span class="pic" style="width:44px;height:44px;border-radius:12px"><img src="${esc(p.img)}" alt=""></span>`:""}<button data-act="img">${tr("Выбрать картинку…")}</button>${p.img?`<button data-act="imgreset">${tr("Сбросить")}</button>`:""}</div></div>
 <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-act="export">${tr("Экспорт сборки")}</button><button class="btn" data-act="mrexport">${tr("Экспорт в .mrpack")}</button><button class="btn t" data-act="dup">${tr("Дублировать")}</button><button class="btn t" data-act="shortcut">${tr("Ярлык на рабочем столе")}</button></div>`;
     renderLoaders(p.l);loadLV();return;
   }
@@ -576,10 +649,10 @@ const fileKinds=["mods","resourcepacks","shaderpacks"];
 async function loadList(fresh){
   const p=profiles[cur],k=editTab;if(!$("#flist"))return;
   const L=await api.instList(p.id,k);if(k!==editTab||!$("#flist"))return;
-  LST=L;[...SEL].forEach(n=>{if(!L.some(f=>f.name===n))SEL.delete(n)});
+  LST=L;loadCounts();[...SEL].forEach(n=>{if(!L.some(f=>f.name===n))SEL.delete(n)});
   if(fresh){const b=$("#flist");b.classList.add("anim");setTimeout(()=>b.classList.remove("anim"),600)}
   drawList();
-  if(fileKinds.includes(k)&&L.length)api.mrIdentify(p.id,k,p.v,p.l).then(m=>{if(k!==editTab||profiles[cur]!==p)return;META=Object.fromEntries(m.map(x=>[x.name,x]));drawList()}).catch(()=>{});
+  if(fileKinds.includes(k)&&L.length)api.mrIdentify(p.id,k,p.v,p.l).then(m=>{if(k!==editTab||profiles[cur]!==p)return;META=Object.fromEntries(m.map(x=>[x.name,x]));if(k==="mods"){UPDN=m.filter(x=>x.update).length;renderTabsBar()}drawList()}).catch(()=>{});
 }
 function drawList(){
   const box=$("#flist");if(!box)return;const k=editTab,empty=`<p class="sub">${tr("Здесь пока пусто")}</p>`;
@@ -613,14 +686,14 @@ $("#tabBody").onclick=async e=>{
     else if(a==="upd1"){const m=META[n];await api.mrApply(p.id,[{name:n,newName:m.update.newName,url:m.update.url}])}
     else if(a==="updall"){await api.mrApply(p.id,LST.filter(f=>META[f.name]?.update).map(f=>({name:f.name,newName:META[f.name].update.newName,url:META[f.name].update.url})));snack("Готово")}
     else if(a==="col")setP({col:el.dataset.v||undefined})
-    else if(a==="em")setP({em:el.dataset.v||undefined,img:undefined})
-    else if(a==="img"){const u=await api.iconPick();if(!u)return;setP({img:u,em:undefined})}
-    else if(a==="export"){const r=await askConfirm(tr("Экспорт сборки"),p.n,tr("Включить миры"),tr("Экспортировать"));if(!r)return;if(await api.profileExport(p.id,{n:p.n,v:p.v,l:p.l,lv:p.lv||"",col:p.col,em:p.em,img:p.img},r.files))snack("Готово")}
+    else if(a==="imgreset")setP({img:undefined})
+    else if(a==="img"){const u=await api.iconPick();if(!u)return;setP({img:u})}
+    else if(a==="export"){const r=await askConfirm(tr("Экспорт сборки"),p.n,tr("Включить миры"),tr("Экспортировать"));if(!r)return;if(await api.profileExport(p.id,{n:p.n,v:p.v,l:p.l,lv:p.lv||"",col:p.col,img:p.img},r.files))snack("Готово")}
     else if(a==="dup"){const id="p"+Date.now().toString(36);await api.profileCopy(p.id,id);profiles.push({...p,id,n:p.n+" "+tr("(копия)")});persist();renderProfiles();snack("Сборка скопирована")}
     else if(a==="shortcut"){await api.shortcutCreate(p.id,p.n,p.img);snack("Ярлык создан на рабочем столе")}
     else if(a==="mrexport"){const r=await askConfirm(tr("Экспорт в .mrpack"),p.n+" — "+tr("Моды не из Modrinth будут вложены в архив"),tr("Включить миры"),tr("Экспортировать"));if(!r)return;snack("Загрузка…");const o=await api.mrpackExport(p.id,{n:p.n,v:p.v,l:p.l,lv:p.lv||""},r.files);if(o)snack(tr("Готово")+" · Modrinth: "+o.files+", "+tr("вложено")+": "+o.bundled)}
   }catch(er){snack(errText(er))}
-  (editTab==="servers"||editTab==="ver"?renderTab:loadList)();
+  (editTab==="servers"||editTab==="ver"?renderTab:loadList)();loadCounts();
 };
 $("#tabBody").onchange=e=>{
   if(e.target.id==="pn")setP({n:e.target.value.trim()||tr("Новая сборка")});
@@ -657,10 +730,10 @@ api.on("log",t=>log(tr(t)));
 $("#play").onclick=async()=>{
   if(running)return;const p=profiles[cur];if(!p){$("#addP").click();return}if(RUN.has(p.id)){api.stop(p.id);return}
     running=true;$("#play").disabled=true;updPresence();$("#playTxt").textContent=tr("Загрузка…");$("#prog").classList.add("on");
-  try{await api.launch({id:p.v,pid:p.id,name:p.n,nick:OFFN,ram:Math.max(512,+(p.ram||$("#ram").value)||4096),jvm:p.jvm?p.jvm:$("#jvm").value,loader:p.l,lver:p.lv||"",java:p.java||$("#java").value,ww:p.ww,wh:p.wh,fullscreen:!!p.fullscreen});$("#playTxt").textContent=tr("Игра запущена")}
+  try{await api.launch({id:p.v,pid:p.id,name:p.n,nick:OFFN,ram:Math.max(512,+(p.ram||$("#ram").value)||4096),jvm:p.jvm?p.jvm:$("#jvm").value,loader:p.l,lver:p.lv||"",java:p.java||$("#java").value,ww:p.ww,wh:p.wh,fullscreen:!!p.fullscreen});$("#playTxt").textContent=tr("Игра запущена");START[p.id]=Date.now();p.last=Date.now();persist();renderHome()}
   catch(e){log(tr("Ошибка: ")+tr(errText(e)));snack("Не удалось запустить, подробности в консоли")}
   setTimeout(()=>{running=false;$("#play").disabled=false;updPlay();$("#prog").classList.remove("on");$("#barI").style.width="0"},2000)};
-async function persist(){await api.setConfig({profiles,cur,nick:OFFN,ram:$("#ram").value,jvm:$("#jvm").value,java:$("#java").value,lang:$("#lang").value,rpc:$("#rpcOn").checked,theme:document.documentElement.dataset.theme||"auto",v:2})}
+async function persist(){await api.setConfig({profiles,cur,nick:OFFN,ram:$("#ram").value,jvm:$("#jvm").value,java:$("#java").value,lang:$("#lang").value,rpc:$("#rpcOn").checked,theme:document.documentElement.dataset.theme||"auto",pview:PV,accent:ACC_COL,amoled:AMOLED,v:2})}
 
 /* Настройки */
 $("#ram").oninput=e=>{e.target.value=e.target.value.replace(/\D/g,"");updMem();renderHome();persist()};
@@ -671,7 +744,7 @@ $$("#theme button").forEach(b=>b.onclick=()=>{
 
 /* Аккаунт */
 let ACC=null,UPD=[],TEXH=64;
-const COLORS=["#6750A4","#B3261E","#E8710A","#2E7D32","#0B8043","#1A73E8","#C2185B","#5F6368"],EMOJI=["⛏️","🗡️","🏰","🚀","🌲","🔥","💎","🐉"];
+const COLORS=["#6750A4","#B3261E","#E8710A","#2E7D32","#0B8043","#1A73E8","#C2185B","#5F6368"];
 const dlg=$("#dlg");
 let OFFN="Steve";
 const chip=()=>{const n=ACC?ACC.name:OFFN;$("#nick").textContent=n;$("#av").textContent=(n||"?")[0].toUpperCase()};
@@ -716,12 +789,12 @@ dlg.onclick=e=>{if(e.target===dlg){api.authCancel();dlg.classList.remove("on")}}
 document.onkeydown=e=>{if(e.key==="Escape"){api.authCancel();dlg.classList.remove("on")}};
 $("#impP").onclick=async()=>{
   try{const id="p"+Date.now().toString(36),m=await api.profileImport(id);if(!m)return;
-    profiles.push({id,n:String(m.n||"").slice(0,60)||tr("Новая сборка"),v:String(m.v),l:LOADERS.includes(m.l)?m.l:"Vanilla",lv:String(m.lv||""),col:/^#[0-9a-f]{6}$/i.test(m.col)?m.col:undefined,em:EMOJI.includes(m.em)?m.em:undefined,img:/^data:image\/png;base64,[A-Za-z0-9+\/=]{1,300000}$/.test(m.img||"")?m.img:undefined});
+    profiles.push({id,n:String(m.n||"").slice(0,60)||tr("Новая сборка"),v:String(m.v),l:LOADERS.includes(m.l)?m.l:"Vanilla",lv:String(m.lv||""),col:/^#[0-9a-f]{6}$/i.test(m.col)?m.col:undefined,img:/^data:image\/png;base64,[A-Za-z0-9+\/=]{1,300000}$/.test(m.img||"")?m.img:undefined});
     cur=profiles.length-1;persist();renderProfiles();renderHome();snack(m.failed&&m.failed.length?tr("Не удалось скачать файлов: ")+m.failed.length:"Готово")}catch(e){snack(errText(e))}finally{$("#impStat").textContent=""}
 };
 
 /* Автозапуск по ярлыку и обновления */
-let PS={};
+let PS={},START={};
 function updPresence(){
   if(!$("#rpcOn").checked){api.presence(null);return}
   const pl=profiles.find(p=>RUN.has(p.id));
@@ -751,6 +824,43 @@ function updAct(){
 $("#updGo").onclick=$("#bannerBtn").onclick=updAct;
 $("#updCheck").onclick=async()=>{UPMAN=true;UP={state:"checking"};updUi();const r=await api.updCheck();if(r.state!=="checking"){UP=r;updUi()}};
 api.on("upd",u=>{if(u.state==="error"&&!UPMAN)return;UP=u;updUi()});
+
+$("#recent").onclick=e=>{const b=e.target.closest(".rc");if(!b)return;cur=+b.dataset.i;persist();renderProfiles();renderHome()};
+
+/* Оформление: акцентный цвет и AMOLED */
+let ACC_COL="",AMOLED=false;
+const ACCENTS=["#6750A4","#1A73E8","#00897B","#2E7D32","#E8710A","#C62828","#C2185B"];
+function hexHsl(hex){
+  const r=parseInt(hex.slice(1,3),16)/255,g=parseInt(hex.slice(3,5),16)/255,b=parseInt(hex.slice(5,7),16)/255,mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;
+  let h=0;if(d){h=mx===r?((g-b)/d)%6:mx===g?(b-r)/d+2:(r-g)/d+4;h*=60;if(h<0)h+=360}
+  const l=(mx+mn)/2;return[h,d?d/(1-Math.abs(2*l-1)):0];
+}
+function applyTheme(){
+  let st=$("#accentStyle");if(!st){st=document.createElement("style");st.id="accentStyle";document.head.append(st)}
+  if(!ACC_COL&&!AMOLED){st.textContent="";return}
+  let [h,sat]=ACC_COL?hexHsl(ACC_COL):[256,.34];sat=Math.min(.75,Math.max(.3,sat));
+  const H=Math.round(h),S=Math.round(sat*100),S2=Math.round(sat*45),c=(a,l)=>`hsl(${H} ${a}% ${l}%)`;
+  const light=`--primary:${c(S,40)};--on-primary:#fff;--primary-c:${c(S,90)};--on-primary-c:${c(S,15)};--secondary-c:${c(S2,90)};--on-secondary-c:${c(S2,12)};--surface:${c(25,98)};--sc-low:${c(22,96)};--sc:${c(20,94)};--sc-high:${c(18,92)};--sc-highest:${c(16,90)};--on-surface:${c(10,12)};--on-variant:${c(8,30)};--outline:${c(6,47)};--outline-v:${c(10,80)};`;
+  const amo=`--surface:#000;--sc-low:#0b0b0b;--sc:#121212;--sc-high:#1a1a1a;--sc-highest:#222;`;
+  const dark=(ACC_COL?`--primary:${c(Math.min(90,S+10),80)};--on-primary:${c(S,20)};--primary-c:${c(S,30)};--on-primary-c:${c(S,90)};--secondary-c:${c(S2,30)};--on-secondary-c:${c(S2,90)};--on-surface:${c(12,90)};--on-variant:${c(10,80)};--outline:${c(6,60)};--outline-v:${c(8,30)};`+(AMOLED?"":`--surface:${c(12,8)};--sc-low:${c(11,11)};--sc:${c(10,13)};--sc-high:${c(9,17)};--sc-highest:${c(8,21)};`):"")+(AMOLED?amo:"");
+  st.textContent=(ACC_COL?`:root{${light}}`:"")+`@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){${dark}}}:root[data-theme="dark"]{${dark}}`;
+}
+function renderAccents(){
+  $("#accents").innerHTML=ACCENTS.map(c=>`<button class="sw" data-c="${c}" style="background:${c}" aria-pressed="${c.toLowerCase()===(ACC_COL||"#6750a4").toLowerCase()}" aria-label="${c}"></button>`).join("")
+    +`<input type="color" id="accCustom" value="${ACC_COL||"#6750a4"}" aria-label="${tr("Акцентный цвет")}" style="width:36px;height:36px;border:0;background:none;padding:0;cursor:pointer"><button data-c="">${tr("Сбросить")}</button>`;
+}
+$("#accents").onclick=e=>{const b=e.target.closest("button[data-c]");if(!b)return;ACC_COL=b.dataset.c==="#6750A4"?"":b.dataset.c;applyTheme();renderAccents();persist()};
+$("#accents").oninput=e=>{if(e.target.id==="accCustom"){ACC_COL=e.target.value;applyTheme()}};
+$("#accents").onchange=e=>{if(e.target.id==="accCustom"){ACC_COL=e.target.value;applyTheme();renderAccents();persist()}};
+$("#amoled").onchange=()=>{AMOLED=$("#amoled").checked;applyTheme();persist()};
+document.addEventListener("pointerdown",e=>{
+  if(matchMedia("(prefers-reduced-motion:reduce)").matches)return;
+  const el=e.target.closest(".btn,.play,.seg button,.lgs button,.acct,.rc,.nb");if(!el||el.disabled)return;
+  const host=el.classList.contains("nb")?el.querySelector(".pill"):el;if(!host)return;
+  const r=host.getBoundingClientRect(),d=Math.hypot(Math.max(e.clientX-r.left,r.right-e.clientX),Math.max(e.clientY-r.top,r.bottom-e.clientY))*2;
+  const s=document.createElement("span");s.className="rip";s.style.cssText=`width:${d}px;height:${d}px;left:${e.clientX-r.left-d/2}px;top:${e.clientY-r.top-d/2}px`;
+  host.append(s);s.addEventListener("animationend",()=>s.remove());
+});
 
 /* Каталог Modrinth */
 let B={kind:"mods",offset:0,total:0,cats:new Set(),inst:new Set(),t:0,pref:null},bT;
@@ -981,7 +1091,7 @@ $("#hist").onclick=async e=>{
     $("#ram").value=c.v>=2?c.ram:Math.round(c.ram*1024);$("#jvm").value=c.jvm}
   updMem();ensureIds();
   try{const a=await api.authState();if(a)setAcc(a)}catch(e){}
-  api.on("running",l=>{RUN=new Set(l);for(const k of Object.keys(PS))if(!RUN.has(k))delete PS[k];renderProfiles();updPlay()});
+  api.on("running",l=>{const prev=RUN;RUN=new Set(l);for(const k of prev)if(!RUN.has(k)&&START[k]){const pr=profiles.find(x=>x.id===k);if(pr){pr.played=(pr.played||0)+Date.now()-START[k];persist()}delete START[k]}for(const k of Object.keys(PS))if(!RUN.has(k))delete PS[k];renderProfiles();updPlay();renderHome()});
   splashMsg("Загрузка версий…");try{const v=await api.versions();versions.splice(0,versions.length,...v)}catch(e){log(tr("Нет сети: список версий не обновлён"))}
   splashMsg("Поиск Java…");await loadJava(c.java||"auto");
   $("#jvm").onchange=$("#java").onchange=persist;
@@ -992,6 +1102,7 @@ $("#hist").onclick=async e=>{
   splashMsg("Готово");setTimeout(hideSplash,Math.max(250,1500-(performance.now()-T0)));
   api.icons().then(i=>{Object.assign(REMOTE,i);renderProfiles();fillForm();renderHome()}).catch(()=>{});
   $("#rpcOn").checked=c.rpc!==false;
+  PV=c.pview||"list";applyPV();ACC_COL=c.accent||"";AMOLED=!!c.amoled;$("#amoled").checked=AMOLED;applyTheme();renderAccents();
   if(c.theme&&c.theme!=="auto"){document.documentElement.dataset.theme=c.theme;$$("#theme button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.t===c.theme))}
   api.rpcInfo().then(i=>{$("#rpcCard").style.display=i.available?"":"none";updPresence()}).catch(()=>{});
   api.appVersion().then(v=>{$("#verTxt").textContent="Nexora Launcher · "+tr("Версия")+" "+v.version}).catch(()=>{});
