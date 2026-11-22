@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, clipboard, nativeImage, nativeTheme } = require('electron');
 const zlib = require('zlib');
+const http = require('http');
 const { pathToFileURL } = require('url');
 const path = require('path'), fs = require('fs'), os = require('os'), crypto = require('crypto');
 const { spawn, execFile } = require('child_process');
@@ -303,13 +304,13 @@ async function authLogin() {
 }
 ipcMain.handle('auth:state', () => viewFresh());
 ipcMain.handle('auth:login', authLogin);
-ipcMain.handle('auth:cancel', () => { authCancelled = true; });
+ipcMain.handle('auth:cancel', () => { authCancelled = true; try { oauthCancel?.(); } catch {} });
 
 /* ---------- Ely.by (Yggdrasil + authlib-injector) и выбор активного аккаунта ---------- */
 const ELYF = path.join(ROOT, 'ely.json'), ACTF = path.join(ROOT, 'active.json'), ELYA = 'https://authserver.ely.by/auth/';
 let ely = null, activeType = null;
-function loadEly() { try { const j = JSON.parse(fs.readFileSync(ELYF, 'utf8')); ely = { ...j, token: decR(j.token) }; } catch { ely = null; } }
-function saveEly() { fs.mkdirSync(ROOT, { recursive: true }); fs.writeFileSync(ELYF, JSON.stringify({ name: ely.name, uuid: ely.uuid, clientToken: ely.clientToken, token: encR(ely.token) })); }
+function loadEly() { try { const j = JSON.parse(fs.readFileSync(ELYF, 'utf8')); ely = { ...j, token: decR(j.token), refresh: j.refresh ? decR(j.refresh) : '' }; } catch { ely = null; } }
+function saveEly() { fs.mkdirSync(ROOT, { recursive: true }); fs.writeFileSync(ELYF, JSON.stringify({ name: ely.name, uuid: ely.uuid, clientToken: ely.clientToken, token: encR(ely.token), oauth: !!ely.oauth, exp: ely.exp || 0, refresh: ely.refresh ? encR(ely.refresh) : '' })); }
 function loadActive() { try { activeType = JSON.parse(fs.readFileSync(ACTF, 'utf8')).active; } catch { activeType = null; } }
 function setActive(t) { activeType = t; fs.mkdirSync(ROOT, { recursive: true }); fs.writeFileSync(ACTF, JSON.stringify({ active: t })); }
 function curType() {
@@ -338,8 +339,56 @@ async function elyLogin(username, password, totp) {
   ely = { name: pr.name, uuid: pr.id, token: r.d.accessToken, clientToken: r.d.clientToken || clientToken }; saveEly(); setActive('ely');
   return viewFresh();
 }
+// Ely.by OAuth2 (вход в браузере, приложение регистрируется на account.ely.by → Приложения).
+// Redirect URI в настройках приложения: http://127.0.0.1:23471/callback. Пока ID не указан, вход по OAuth скрыт.
+const ELY_OAUTH = { clientId: process.env.NEXORA_ELY_ID || 'nexora-launcher1', clientSecret: process.env.NEXORA_ELY_SECRET || '', port: 23471,
+  authUrl: 'https://account.ely.by/oauth2/v1', tokenUrl: 'https://account.ely.by/api/oauth2/v1/token', infoUrl: 'https://account.ely.by/api/account/v1/info',
+  scope: 'account_info minecraft_server_session offline_access' };
+let oauthCancel = null;
+const oauthPage = m => `<!doctype html><meta charset="utf-8"><title>Nexora Launcher</title><body style="font-family:system-ui,sans-serif;background:#141218;color:#E6E0E9;display:grid;place-items:center;height:100vh;margin:0"><div style="text-align:center"><div style="width:72px;height:72px;border-radius:20px;background:#6750A4;color:#fff;font:700 40px/72px system-ui;margin:0 auto 16px">N</div><h2 style="font-weight:500">${m}</h2></div>`;
+const elyCreds = () => ({ client_id: ELY_OAUTH.clientId, ...(ELY_OAUTH.clientSecret ? { client_secret: ELY_OAUTH.clientSecret } : {}) });
+async function elyOAuth() {
+  const o = ELY_OAUTH; if (!o.clientId) throw new Error('Ely.by OAuth не настроен');
+  const redirect = `http://127.0.0.1:${o.port}/callback`, state = crypto.randomBytes(16).toString('hex');
+  const verifier = crypto.randomBytes(32).toString('base64url'), challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+  const code = await new Promise((resolve, reject) => {
+    let timer;
+    const srv = http.createServer((req, res) => {
+      const u = new URL(req.url, redirect);
+      if (u.pathname !== '/callback') { res.writeHead(404); res.end(); return; }
+      const c = u.searchParams.get('state') === state ? u.searchParams.get('code') : null;
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(oauthPage(c ? 'Готово! Можно закрыть вкладку и вернуться в Nexora Launcher.' : 'Вход не выполнен. Вернитесь в Nexora Launcher и попробуйте ещё раз.'));
+      clearTimeout(timer); srv.close(); oauthCancel = null;
+      c ? resolve(c) : reject(new Error(u.searchParams.get('error') ? 'Вход отменён' : 'Не удалось войти через Ely.by'));
+    });
+    srv.on('error', () => { clearTimeout(timer); reject(new Error('Порт для входа занят')); });
+    timer = setTimeout(() => { srv.close(); oauthCancel = null; reject(new Error('Время ожидания входа истекло')); }, 180000);
+    oauthCancel = () => { clearTimeout(timer); srv.close(); oauthCancel = null; reject(new Error('Вход отменён')); };
+    srv.listen(o.port, '127.0.0.1', () => shell.openExternal(`${o.authUrl}?${new URLSearchParams({ client_id: o.clientId, redirect_uri: redirect, response_type: 'code', scope: o.scope, state, code_challenge: challenge, code_challenge_method: 'S256' })}`));
+  });
+  const t = await post(o.tokenUrl, { ...elyCreds(), redirect_uri: redirect, grant_type: 'authorization_code', code, code_verifier: verifier });
+  if (!t.ok || !t.d.access_token) throw new Error('Ely.by: ' + (t.d.error_description || t.d.error || t.status));
+  const ir = await fetch(o.infoUrl, { headers: { Authorization: 'Bearer ' + t.d.access_token } });
+  if (!ir.ok) throw new Error('Ely.by: ' + ir.status);
+  const j = await ir.json();
+  ely = { name: j.username, uuid: String(j.uuid || '').replace(/-/g, ''), token: t.d.access_token, clientToken: crypto.randomUUID(), oauth: true, refresh: t.d.refresh_token || '', exp: Date.now() + (t.d.expires_in || 86400) * 1000 - 60000 };
+  saveEly(); setActive('ely');
+  return viewFresh();
+}
+ipcMain.handle('ely:oauth', () => elyOAuth());
+ipcMain.handle('ely:info', () => ({ oauth: !!ELY_OAUTH.clientId }));
 async function ensureEly() {
   if (!ely) return null;
+  if (ely.oauth) {
+    if (ely.exp && ely.exp < Date.now() + 60000) {
+      if (!ely.refresh) throw new Error('Сессия Ely.by истекла, войдите заново');
+      const r = await post(ELY_OAUTH.tokenUrl, { ...elyCreds(), grant_type: 'refresh_token', refresh_token: ely.refresh });
+      if (!r.ok || !r.d.access_token) throw new Error('Сессия Ely.by истекла, войдите заново');
+      ely.token = r.d.access_token; if (r.d.refresh_token) ely.refresh = r.d.refresh_token; ely.exp = Date.now() + (r.d.expires_in || 86400) * 1000 - 60000; saveEly();
+    }
+    return { name: ely.name, uuid: ely.uuid, token: ely.token, ely: true };
+  }
   const v = await fetch(ELYA + 'validate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessToken: ely.token, clientToken: ely.clientToken }) });
   if (!v.ok) {
     const r = await post(ELYA + 'refresh', { accessToken: ely.token, clientToken: ely.clientToken }, 1);

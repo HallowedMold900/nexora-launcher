@@ -222,6 +222,36 @@ div.prof{cursor:pointer}
 .cnt{margin-left:6px;font-size:12px;background:var(--sc-highest);border-radius:10px;padding:1px 7px}
 .lgs button[aria-pressed="true"] .cnt{background:rgba(255,255,255,.35)}
 .dot{width:8px;height:8px;border-radius:50%;background:#B3261E;display:inline-block;margin-left:6px}
+/* — скругления, выпадающие списки, чекбоксы, скроллбары, консоль — */
+.field input[type=text],.field input[type=password],.field select,.msb{border:1px solid var(--outline-v);border-radius:12px;background:var(--sc-highest);padding:13px 14px;width:100%;color:inherit}
+.field input[type=text]:focus,.field input[type=password]:focus,.field select:focus,.msb:focus{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary);outline:none}
+.msel{position:relative;width:100%}
+.msh{display:none!important}
+.msb{position:relative;text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:38px;font:inherit}
+.msb::after{content:"";position:absolute;right:15px;top:50%;width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:translateY(-70%) rotate(45deg);opacity:.7}
+.msm{position:fixed;z-index:30;background:var(--sc-high);border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.35);padding:6px;overflow:auto;animation:vin .15s ease}
+.mso{padding:10px 12px;border-radius:10px;cursor:pointer}
+.mso:hover,.mso.act{background:var(--sc-highest)}
+.mso.sel{background:var(--secondary-c);color:var(--on-secondary-c)}
+.mso.dis{opacity:.45;cursor:default}
+input[type=checkbox]:not(.tg){appearance:none;-webkit-appearance:none;width:20px;height:20px;border-radius:50%;border:2px solid var(--outline);background:transparent;cursor:pointer;position:relative;flex:none;transition:background .15s,border-color .15s;vertical-align:middle}
+.frow input[type=checkbox]:not(.tg){width:20px;height:20px}
+input[type=checkbox]:not(.tg):checked{background:var(--primary);border-color:var(--primary)}
+input[type=checkbox]:not(.tg):checked::after{content:"";position:absolute;left:5px;top:1.5px;width:5px;height:10px;border:solid var(--on-primary);border-width:0 2px 2px 0;transform:rotate(45deg)}
+input[type=color]{appearance:none;-webkit-appearance:none;width:36px;height:36px;padding:0;border:2px solid var(--outline-v);border-radius:50%;background:none;cursor:pointer;overflow:hidden}
+input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+input[type=color]::-webkit-color-swatch{border:0;border-radius:50%}
+.lgs button{border-radius:16px}
+.seg{display:flex;width:max-content;max-width:100%;flex:none;overflow-x:auto}
+.seg::-webkit-scrollbar{display:none}
+.seg button{flex:1 0 auto;white-space:nowrap;padding:9px 14px}
+::-webkit-scrollbar{width:12px;height:12px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--outline-v);border-radius:10px;border:3px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:var(--outline);border:3px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-button{display:none;width:0;height:0}
+::-webkit-scrollbar-corner{background:transparent}
+.log{white-space:pre-wrap;word-break:break-word;resize:vertical;min-height:140px}
 </style>
 </head>
 <body>
@@ -351,6 +381,7 @@ div.prof{cursor:pointer}
     <div id="accAdd" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"></div>
     <div id="msBox" style="display:none;margin-bottom:12px"><p class="sub">Введите этот код на странице Microsoft (она откроется в браузере):</p><div id="msCode" style="font:700 28px/1.4 ui-monospace,Menlo,monospace;letter-spacing:4px;margin:8px 0;user-select:all"></div><p class="sub" id="msState">Ожидание входа…</p></div>
     <div id="elyBox" style="display:none;margin-bottom:12px">
+      <div id="elyOW" style="display:none;margin-bottom:12px"><button class="btn" id="elyOauth">Войти через браузер</button><p class="sub" id="elyOState" style="margin:8px 0"></p><p class="sub">или по логину и паролю:</p></div>
       <div class="field"><label for="elyU">Логин или e-mail Ely.by</label><input type="text" id="elyU" autocomplete="username"></div>
       <div class="field"><label for="elyP">Пароль</label><input type="password" id="elyP" autocomplete="current-password"></div>
       <div class="field" id="elyTW" style="display:none"><label for="elyT">Код двухфакторной защиты</label><input type="text" id="elyT" inputmode="numeric" autocomplete="one-time-code"></div>
@@ -416,7 +447,9 @@ const I18N={
 "По имени":["By name","За назвою"],"По дате":["By date","За датою"],"По размеру":["By size","За розміром"],"Выбрано":["Selected","Вибрано"],"Включить":["Enable","Увімкнути"],"Выключить":["Disable","Вимкнути"],
 "Снять выделение":["Clear selection","Зняти виділення"],"Выбрать все":["Select all","Вибрати всі"],"Обновить":["Update","Оновити"],"Отпустите, чтобы добавить в":["Drop to add to","Відпустіть, щоб додати до"],
 "Копировать":["Copy","Копіювати"],"Открыть в программе":["Open in viewer","Відкрити в програмі"],"Скопировано":["Copied","Скопійовано"],"Назад":["Back","Назад"],"Вперёд":["Next","Далі"],
-"Плащ":["Cape","Плащ"],"Недавние сборки":["Recent profiles","Нещодавні збірки"],"Последний запуск":["Last launch","Останній запуск"],"Время в игре":["Play time","Час у грі"],"никогда":["never","ніколи"],
+"Плащ":["Cape","Плащ"],"Войти через браузер":["Sign in via browser","Увійти через браузер"],"Подтвердите вход в браузере…":["Confirm sign-in in your browser…","Підтвердіть вхід у браузері…"],
+"или по логину и паролю:":["or with username and password:","або за логіном і паролем:"],"Порт для входа занят":["The sign-in port is busy","Порт для входу зайнятий"],"Ely.by OAuth не настроен":["Ely.by OAuth is not configured","Ely.by OAuth не налаштовано"],
+"Не удалось войти через Ely.by":["Ely.by sign-in failed","Не вдалося увійти через Ely.by"],"Недавние сборки":["Recent profiles","Нещодавні збірки"],"Последний запуск":["Last launch","Останній запуск"],"Время в игре":["Play time","Час у грі"],"никогда":["never","ніколи"],
 "ч":["h","год"],"мин":["min","хв"],"Список":["List","Список"],"Плитки":["Tiles","Плитки"],"Закрепить":["Pin","Закріпити"],"Есть обновления":["Updates available","Є оновлення"],
 "Картинка сборки":["Profile image","Картинка збірки"],"Выбрать картинку…":["Choose image…","Обрати картинку…"],"Акцентный цвет":["Accent color","Акцентний колір"],"Чёрный фон (AMOLED)":["Black background (AMOLED)","Чорний фон (AMOLED)"],"Не удалось загрузить скин":["Couldn’t load the skin","Не вдалося завантажити скін"],
 "Плащи доступны только для аккаунта Microsoft":["Capes are only available for Microsoft accounts","Плащі доступні лише для акаунта Microsoft"],
@@ -521,7 +554,7 @@ let cur=0,running=false;
 const titles={home:["Главная","Выберите сборку и запускайте игру"],profiles:["Сборки","Версии, загрузчики и параметры"],settings:["Настройки","Память, Java и оформление"],edit:["Изменение сборки","Версия, моды, миры и другое"],skins:["Скины","3D-превью и смена скина"],browse:["Каталог","Моды, ресурсы и шейдеры из Modrinth"]};
 
 function snack(t){const s=$("#snack");s.textContent=tr(t);s.classList.add("on");clearTimeout(snack.t);snack.t=setTimeout(()=>s.classList.remove("on"),2600)}
-function log(t){const l=$("#log");l.textContent+="\n"+t;l.scrollTop=l.scrollHeight}
+function log(t){const l=$("#log");l.textContent=(l.textContent+"\n"+t).slice(-150000);l.scrollTop=l.scrollHeight}
 
 function show(v){curView=v;if(v==="skins")setTimeout(skinShow);if(v==="browse")setTimeout(browseShow);
   $$(".view").forEach(e=>e.classList.toggle("on",e.id==="v-"+v));
@@ -768,7 +801,7 @@ $("#accList").onclick=async e=>{
 };
 $("#accAdd").onclick=e=>{
   const b=e.target.closest("[data-add]");if(!b)return;
-  if(b.dataset.add==="ms")msLogin();else{$("#elyBox").style.display="";$("#elyTW").style.display="none";$("#elyState").textContent="";$("#elyU").focus()}
+  if(b.dataset.add==="ms")msLogin();else{$("#elyBox").style.display="";$("#elyTW").style.display="none";$("#elyState").textContent="";$("#elyOState").textContent="";api.elyInfo().then(i=>{$("#elyOW").style.display=i.oauth?"":"none"}).catch(()=>{});$("#elyU").focus()}
 };
 $("#ok").onclick=()=>{OFFN=$("#nin").value.trim()||"Steve";chip();persist();snack(tr("Ник сохранён: ")+OFFN);accRender()};
 api.on("authcode",c=>{$("#msCode").textContent=c.code});
@@ -784,6 +817,12 @@ $("#elyGo").onclick=async()=>{
     setAcc(a);SK.picked=false;$("#elyP").value="";$("#elyT").value="";$("#elyBox").style.display="none";snack(tr("Вы вошли как ")+a.name);accRender();
   }catch(e){const m=errText(e);if(m==="Нужен код двухфакторной защиты Ely.by")$("#elyTW").style.display="";$("#elyState").textContent=tr(m)}
   finally{$("#elyGo").disabled=false}
+};
+$("#elyOauth").onclick=async()=>{
+  $("#elyOauth").disabled=true;$("#elyOState").textContent=tr("Подтвердите вход в браузере…");
+  try{const a=await api.elyOAuth();setAcc(a);SK.picked=false;$("#elyBox").style.display="none";snack(tr("Вы вошли как ")+a.name);accRender()}
+  catch(e){$("#elyOState").textContent=tr(errText(e))}
+  finally{$("#elyOauth").disabled=false}
 };
 dlg.onclick=e=>{if(e.target===dlg){api.authCancel();dlg.classList.remove("on")}};
 document.onkeydown=e=>{if(e.key==="Escape"){api.authCancel();dlg.classList.remove("on")}};
@@ -847,7 +886,7 @@ function applyTheme(){
 }
 function renderAccents(){
   $("#accents").innerHTML=ACCENTS.map(c=>`<button class="sw" data-c="${c}" style="background:${c}" aria-pressed="${c.toLowerCase()===(ACC_COL||"#6750a4").toLowerCase()}" aria-label="${c}"></button>`).join("")
-    +`<input type="color" id="accCustom" value="${ACC_COL||"#6750a4"}" aria-label="${tr("Акцентный цвет")}" style="width:36px;height:36px;border:0;background:none;padding:0;cursor:pointer"><button data-c="">${tr("Сбросить")}</button>`;
+    +`<input type="color" id="accCustom" value="${ACC_COL||"#6750a4"}" aria-label="${tr("Акцентный цвет")}" ><button data-c="">${tr("Сбросить")}</button>`;
 }
 $("#accents").onclick=e=>{const b=e.target.closest("button[data-c]");if(!b)return;ACC_COL=b.dataset.c==="#6750A4"?"":b.dataset.c;applyTheme();renderAccents();persist()};
 $("#accents").oninput=e=>{if(e.target.id==="accCustom"){ACC_COL=e.target.value;applyTheme()}};
@@ -861,6 +900,47 @@ document.addEventListener("pointerdown",e=>{
   const s=document.createElement("span");s.className="rip";s.style.cssText=`width:${d}px;height:${d}px;left:${e.clientX-r.left-d/2}px;top:${e.clientY-r.top-d/2}px`;
   host.append(s);s.addEventListener("animationend",()=>s.remove());
 });
+
+/* Свои выпадающие списки вместо системных (скруглённые) */
+let MENU=null;
+function closeMenu(){if(MENU){MENU.remove();MENU=null}}
+function openMenu(sel,btn){
+  closeMenu();
+  const m=document.createElement("div");m.className="msm";m.setAttribute("role","listbox");
+  [...sel.options].forEach((o,i)=>{const d=document.createElement("div");d.className="mso"+(i===sel.selectedIndex?" sel act":"")+(o.disabled?" dis":"");d.textContent=o.textContent;d.dataset.i=i;d.setAttribute("role","option");m.append(d)});
+  m.onclick=e=>{const d=e.target.closest(".mso");if(!d||d.classList.contains("dis"))return;sel.selectedIndex=+d.dataset.i;sel.dispatchEvent(new Event("change",{bubbles:true}));closeMenu();btn.focus()};
+  document.body.append(m);MENU=m;
+  const r=btn.getBoundingClientRect();m.style.minWidth=r.width+"px";
+  const room=innerHeight-r.bottom-12,up=room<Math.min(m.scrollHeight,220)&&r.top>room;
+  m.style.maxHeight=Math.max(120,Math.min(320,up?r.top-12:room))+"px";
+  m.style.left=Math.max(8,Math.min(r.left,innerWidth-m.offsetWidth-8))+"px";
+  m.style.top=(up?Math.max(8,r.top-m.offsetHeight-4):r.bottom+4)+"px";
+  m.querySelector(".sel")?.scrollIntoView({block:"nearest"});
+}
+function enhanceSelect(sel){
+  if(sel._ms)return;sel._ms=true;
+  const wrap=document.createElement("div");wrap.className="msel";
+  const btn=document.createElement("button");btn.type="button";btn.className="msb";btn.setAttribute("aria-haspopup","listbox");
+  sel.parentNode.insertBefore(wrap,sel);wrap.append(btn,sel);sel.classList.add("msh");
+  const label=()=>{const o=sel.options[sel.selectedIndex];btn.textContent=o?o.textContent:""};
+  const d=Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,"value");
+  Object.defineProperty(sel,"value",{configurable:true,get(){return d.get.call(sel)},set(v){d.set.call(sel,v);label()}});
+  new MutationObserver(label).observe(sel,{childList:true,subtree:true,characterData:true});
+  sel.addEventListener("change",label);label();
+  btn.onclick=e=>{e.stopPropagation();MENU&&MENU._btn===btn?closeMenu():(openMenu(sel,btn),MENU._btn=btn)};
+}
+document.addEventListener("pointerdown",e=>{if(MENU&&!e.target.closest(".msm,.msb"))closeMenu()},true);
+document.addEventListener("scroll",e=>{if(MENU&&!MENU.contains(e.target))closeMenu()},true);
+addEventListener("resize",closeMenu);
+document.addEventListener("keydown",e=>{
+  if(!MENU)return;
+  const items=[...MENU.querySelectorAll(".mso:not(.dis)")];let i=items.findIndex(x=>x.classList.contains("act"));
+  if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();items[i]?.classList.remove("act");i=(i+(e.key==="ArrowDown"?1:-1)+items.length)%items.length;items[i].classList.add("act");items[i].scrollIntoView({block:"nearest"})}
+  else if(e.key==="Enter"&&items[i]){e.preventDefault();items[i].click()}
+  else if(e.key==="Escape"){e.stopPropagation();closeMenu()}
+},true);
+$$("select").forEach(enhanceSelect);
+new MutationObserver(ms=>{for(const m of ms)for(const n of m.addedNodes)if(n.nodeType===1){if(n.tagName==="SELECT")enhanceSelect(n);else n.querySelectorAll&&n.querySelectorAll("select").forEach(enhanceSelect)}}).observe(document.body,{childList:true,subtree:true});
 
 /* Каталог Modrinth */
 let B={kind:"mods",offset:0,total:0,cats:new Set(),inst:new Set(),t:0,pref:null},bT;

@@ -9,7 +9,7 @@ contextBridge.exposeInMainWorld('api', {
   shortcutCreate: inv('shortcut:create'), launchPending: inv('launch:pending'),
   appVersion: inv('app:version'), updCheck: inv('upd:check'), updDownload: inv('upd:download'), updInstall: inv('upd:install'),
   presence: inv('rpc:set'), rpcInfo: inv('rpc:info'),
-  instCounts: inv('inst:counts'), imgFetch: inv('img:fetch'), authList: inv('auth:list'), authSelect: inv('auth:select'), elyLogin: inv('ely:login'), mrpackExport: inv('mrpack:export'), mrModpack: inv('mr:modpack'),
+  instCounts: inv('inst:counts'), elyOAuth: inv('ely:oauth'), elyInfo: inv('ely:info'), imgFetch: inv('img:fetch'), authList: inv('auth:list'), authSelect: inv('auth:select'), elyLogin: inv('ely:login'), mrpackExport: inv('mrpack:export'), mrModpack: inv('mr:modpack'),
   mrPlan: inv('mr:plan'), iconPick: inv('icon:pick'), mrIdentify: inv('mr:identify'), mrCategories: inv('mr:categories'), mrProject: inv('mr:project'), openUrl: inv('open:url'), shotCopy: inv('shot:copy'), mrApply: inv('mr:apply'),
   profileExport: inv('profile:export'), profileImport: inv('profile:import'), profileCopy: inv('profile:copy'), instCopy: inv('inst:copy'),
   pathOf: f => webUtils.getPathForFile(f),

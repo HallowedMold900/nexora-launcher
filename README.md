@@ -1,18 +1,5 @@
 # Nexora Launcher
 
-Запуск для разработки: `npm install`, затем `npm start`.
-
-## Публикация и автообновление (GitHub)
-1. В папке проекта: `git init`, `git add .`, `git commit -m "Nexora Launcher 0.4.0"`, `git branch -M main`,
-   `git remote add origin https://github.com/HallowedMold900/nexora-launcher.git`, `git push -u origin main`.
-2. Выпуск версии: `git tag v0.4.0` и `git push origin v0.4.0`. GitHub Actions соберёт установщики для Windows, Linux и macOS
-   и опубликует их в Releases (вместе с `latest.yml`, по которому работает автообновление).
-3. Новая версия: поднимите `version` в `package.json` (например, 0.4.1), закоммитьте, поставьте тег `v0.4.1` и отправьте его.
-   Установленные лаунчеры сами предложат обновиться (баннер вверху и раздел «Настройки → Обновления»).
-
-Версия в `package.json` должна совпадать с тегом. Автообновление работает только в установленной (собранной) версии.
-На macOS для автообновления нужна подпись приложения Apple Developer.
-
 ## Возможности
 - Вход через Microsoft, офлайн-режим, 3D-превью скина, смена скина и плаща, история скинов.
 - Загрузчики: Vanilla, Fabric, Quilt, Forge, NeoForge (выбор версии загрузчика).
@@ -24,12 +11,6 @@
 ## Импорт модпаков .mrpack
 Раздел «Сборки» → «Импорт» принимает `.mrpack` (Modrinth) и архивы сборок Nexora. Файлы скачиваются с проверкой sha1,
 загрузчик и его версия берутся из пакета. Версии Minecraft старше 1.19 лаунчер пока не запускает.
-
-## Discord Rich Presence
-1. Создайте приложение на https://discord.com/developers/applications (название будет видно в Discord, например «Nexora Launcher»).
-2. Скопируйте Application ID и вставьте в `main.js` в константу `DISCORD_CLIENT_ID` (или задайте переменную окружения `NEXORA_DISCORD_ID`).
-3. По желанию: Rich Presence → Art Assets → загрузите картинку с именем `nexora`, она станет большой иконкой.
-Пока ID не указан, раздел Discord в настройках скрыт. Тексты статуса идут на языке лаунчера (ru / en / uk).
 
 ## Аккаунты, настройки сборок, .mrpack
 - Аккаунты: Microsoft, Ely.by (логин/e-mail + пароль, 2FA-код, authlib-injector подключается сам) и офлайн. Активный выбирается в окне аккаунтов (кнопка справа вверху).
