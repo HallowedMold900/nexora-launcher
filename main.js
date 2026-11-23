@@ -1,6 +1,13 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, clipboard, nativeImage, nativeTheme } = require('electron');
 const zlib = require('zlib');
 const http = require('http');
+// Сеть через Chromium (системный прокси, сертификаты ОС, антивирусы с проверкой HTTPS) вместо Node-fetch; понятные сетевые ошибки
+const nodeFetch = globalThis.fetch, eNet = require('electron').net;
+const netErr = (e, url) => { let host = ''; try { host = new URL(url).hostname; } catch {} const c = e?.cause; return new Error('Сетевая ошибка: {0}|' + host + ' — ' + (c?.code || c?.message || e?.message || 'fetch failed')); };
+const rawFetch = (u, o) => eNet.fetch(u, o);
+const fetch = async (u, o) => { try { return await rawFetch(u, o); } catch (e) { throw netErr(e, String(u)); } };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const fetchRetry = async (u, o, n = 3) => { let last; for (let i = 0; i < n; i++) { try { return await fetch(u, o); } catch (e) { last = e; await sleep(700 * (i + 1)); } } throw last; };
 const { pathToFileURL } = require('url');
 const path = require('path'), fs = require('fs'), os = require('os'), crypto = require('crypto');
 const { spawn, execFile } = require('child_process');
@@ -12,8 +19,11 @@ const plat = { win32: 'windows', darwin: 'osx', linux: 'linux' }[process.platfor
 const exe = process.platform === 'win32' ? 'java.exe' : 'java';
 let win;
 
-const getJson = async u => { const r = await fetch(u); if (!r.ok) throw new Error(`${r.status} ${u}`); return r.json(); };
+const getJson = async u => { const r = await fetchRetry(u); if (!r.ok) throw new Error(`${r.status} ${u}`); return r.json(); };
 async function download(url, dest) {
+  for (let i = 0; ; i++) { try { return await download1(url, dest); } catch (e) { if (i >= 2) throw e; await sleep(700 * (i + 1)); } }
+}
+async function download1(url, dest) {
   if (fs.existsSync(dest)) return;
   if (!url) throw new Error('Нет файла: ' + dest);
   fs.mkdirSync(path.dirname(dest), { recursive: true });
@@ -206,6 +216,16 @@ async function launch({ lver, id, pid, name, nick, ram, jvm, loader, java: jsel,
   });
 }
 
+// Диагностика сети: какие серверы доступны с этого компьютера
+ipcMain.handle('net:check', async () => {
+  const T = [['Mojang: версии', 'https://piston-meta.mojang.com/mc/game/version_manifest_v2.json'], ['Mojang: библиотеки', 'https://libraries.minecraft.net/'], ['Mojang: ресурсы', 'https://resources.download.minecraft.net/'],
+    ['Fabric', 'https://meta.fabricmc.net/v2/versions/game'], ['Modrinth', 'https://api.modrinth.com/v2/'], ['Microsoft', 'https://login.microsoftonline.com/consumers/discovery/v2.0/keys'], ['Ely.by', 'https://authserver.ely.by/']];
+  return Promise.all(T.map(async ([n, u]) => {
+    const t = Date.now();
+    try { const r = await rawFetch(u, { signal: AbortSignal.timeout(8000) }); return { n, ok: true, ms: Date.now() - t, code: r.status }; }
+    catch (e) { return { n, ok: false, err: String(e?.cause?.code || e?.message || e).slice(0, 90) }; }
+  }));
+});
 ipcMain.handle('versions', async () => {
   const ids = (await getJson(MANIFEST)).versions.filter(v => v.type === 'release').map(v => v.id);
   return ids.slice(0, ids.indexOf('1.19') + 1);
@@ -413,7 +433,7 @@ async function elyApplySkin(variant) {
   let ok = false;
   try {
     const fd = new FormData(); fd.append('variant', model); fd.append('file', new Blob([pickedSkin], { type: 'image/png' }), 'skin.png');
-    const r = await fetch('https://account.ely.by/api/mojang/services/minecraft/profile/skins', { method: 'POST', headers: { Authorization: 'Bearer ' + A.token }, body: fd });
+    const r = await nodeFetch('https://account.ely.by/api/mojang/services/minecraft/profile/skins', { method: 'POST', headers: { Authorization: 'Bearer ' + A.token }, body: fd });
     ok = r.ok;
   } catch {}
   addHist(pickedSkin, model, ok ? 'applied' : 'saved');
@@ -483,7 +503,7 @@ ipcMain.handle('skin:apply', async (_, variant) => {
     if (cs) { const r0 = await fetch(cs.url.replace('http://', 'https://')); if (r0.ok) addHist(Buffer.from(await r0.arrayBuffer()), String(cs.variant || 'CLASSIC').toLowerCase(), 'account'); }
   } catch {}
   fd.append('variant', variant === 'slim' ? 'slim' : 'classic'); fd.append('file', new Blob([pickedSkin], { type: 'image/png' }), 'skin.png');
-  const r = await fetch('https://api.minecraftservices.com/minecraft/profile/skins', { method: 'POST', headers: { Authorization: 'Bearer ' + A.token }, body: fd });
+  const r = await nodeFetch('https://api.minecraftservices.com/minecraft/profile/skins', { method: 'POST', headers: { Authorization: 'Bearer ' + A.token }, body: fd });
   if (!r.ok) throw new Error('Не удалось сменить скин (' + r.status + ')');
   const pj = await r.json(); acc.skins = pj.skins || []; acc.capes = pj.capes || acc.capes; saveAcc(); addHist(pickedSkin, variant === 'slim' ? 'slim' : 'classic', 'applied'); return accView();
 });

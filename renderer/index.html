@@ -348,6 +348,7 @@ input[type=color]::-webkit-color-swatch{border:0;border-radius:50%}
   <section class="view" id="v-settings">
     <div class="grid">
       <div class="card"><h2>Обновления</h2><p class="sub" id="verTxt" style="margin-bottom:8px"></p><p id="updTxt" style="margin-bottom:12px"></p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="updCheck">Проверить обновления</button><button class="btn" id="updGo" style="display:none">Скачать</button></div></div>
+      <div class="card"><h2>Сеть</h2><p class="sub" style="margin-bottom:12px">Проверка доступа к серверам Mojang, Fabric, Modrinth, Microsoft и Ely.by.</p><button class="btn" id="netCheck">Проверить соединение</button><div id="netRes" style="margin-top:12px"></div></div>
       <div class="card" id="rpcCard" style="display:none"><h2>Discord</h2><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="rpcOn" checked style="accent-color:var(--primary)"><span>Показывать мою активность в Discord</span></label></div>
       <div class="card">
         <h2>Память</h2>
@@ -447,7 +448,9 @@ const I18N={
 "По имени":["By name","За назвою"],"По дате":["By date","За датою"],"По размеру":["By size","За розміром"],"Выбрано":["Selected","Вибрано"],"Включить":["Enable","Увімкнути"],"Выключить":["Disable","Вимкнути"],
 "Снять выделение":["Clear selection","Зняти виділення"],"Выбрать все":["Select all","Вибрати всі"],"Обновить":["Update","Оновити"],"Отпустите, чтобы добавить в":["Drop to add to","Відпустіть, щоб додати до"],
 "Копировать":["Copy","Копіювати"],"Открыть в программе":["Open in viewer","Відкрити в програмі"],"Скопировано":["Copied","Скопійовано"],"Назад":["Back","Назад"],"Вперёд":["Next","Далі"],
-"Плащ":["Cape","Плащ"],"Войти через браузер":["Sign in via browser","Увійти через браузер"],"Подтвердите вход в браузере…":["Confirm sign-in in your browser…","Підтвердіть вхід у браузері…"],
+"Плащ":["Cape","Плащ"],"Сеть":["Network","Мережа"],"Проверка доступа к серверам Mojang, Fabric, Modrinth, Microsoft и Ely.by.":["Checks access to Mojang, Fabric, Modrinth, Microsoft and Ely.by servers.","Перевірка доступу до серверів Mojang, Fabric, Modrinth, Microsoft та Ely.by."],
+"Проверить соединение":["Check connection","Перевірити з’єднання"],"мс":["ms","мс"],"Сетевая ошибка: {0}":["Network error: {0}","Мережева помилка: {0}"],
+"Если что-то недоступно: проверьте интернет, VPN или прокси и антивирус (проверка HTTPS-трафика).":["If something is unreachable: check your internet, VPN/proxy and antivirus (HTTPS scanning).","Якщо щось недоступне: перевірте інтернет, VPN або проксі та антивірус (перевірка HTTPS-трафіку)."],"Войти через браузер":["Sign in via browser","Увійти через браузер"],"Подтвердите вход в браузере…":["Confirm sign-in in your browser…","Підтвердіть вхід у браузері…"],
 "или по логину и паролю:":["or with username and password:","або за логіном і паролем:"],"Порт для входа занят":["The sign-in port is busy","Порт для входу зайнятий"],"Ely.by OAuth не настроен":["Ely.by OAuth is not configured","Ely.by OAuth не налаштовано"],
 "Не удалось войти через Ely.by":["Ely.by sign-in failed","Не вдалося увійти через Ely.by"],"Недавние сборки":["Recent profiles","Нещодавні збірки"],"Последний запуск":["Last launch","Останній запуск"],"Время в игре":["Play time","Час у грі"],"никогда":["never","ніколи"],
 "ч":["h","год"],"мин":["min","хв"],"Список":["List","Список"],"Плитки":["Tiles","Плитки"],"Закрепить":["Pin","Закріпити"],"Есть обновления":["Updates available","Є оновлення"],
@@ -941,6 +944,15 @@ document.addEventListener("keydown",e=>{
 },true);
 $$("select").forEach(enhanceSelect);
 new MutationObserver(ms=>{for(const m of ms)for(const n of m.addedNodes)if(n.nodeType===1){if(n.tagName==="SELECT")enhanceSelect(n);else n.querySelectorAll&&n.querySelectorAll("select").forEach(enhanceSelect)}}).observe(document.body,{childList:true,subtree:true});
+
+$("#netCheck").onclick=async()=>{
+  const b=$("#netCheck"),box=$("#netRes");b.disabled=true;box.textContent=tr("Проверка…");
+  try{
+    const R=await api.netCheck();
+    box.innerHTML=R.map(x=>`<div class="frow"><span class="grow">${esc(x.n)}</span><small>${x.ok?x.ms+" "+tr("мс"):esc(x.err)}</small><strong style="color:${x.ok?"var(--primary)":"#B3261E"}">${x.ok?"✓":"✕"}</strong></div>`).join("")+(R.some(x=>!x.ok)?`<p class="sub" style="margin-top:10px">${tr("Если что-то недоступно: проверьте интернет, VPN или прокси и антивирус (проверка HTTPS-трафика).")}</p>`:"");
+  }catch(e){box.textContent=errText(e)}
+  finally{b.disabled=false}
+};
 
 /* Каталог Modrinth */
 let B={kind:"mods",offset:0,total:0,cats:new Set(),inst:new Set(),t:0,pref:null},bT;
